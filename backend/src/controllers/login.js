@@ -1,21 +1,39 @@
-import User from "../models/User.js";
-import express from "express";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
 export const login = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
-  if (!user) return res.status(400).json({ message: "User not found" });
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
+    }
 
-  // Normally you check hashed password here
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
-  // Generate the JWT
-  const token = jwt.sign(
-    { id: user._id, email: user.email },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
-  return res.json({ token });
+    user.lastlogin = new Date();
+    await user.save();
+
+    const token = jwt.sign(
+      { userId: user.userId, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(200).json({ token });
+  } catch (err) {
+    console.error("Login failed", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
