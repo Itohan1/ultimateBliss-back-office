@@ -2,58 +2,50 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Aside from "../components/Aside.tsx";
+import { useGetUsersQuery } from "../services/authApi.ts";
 import Header from "../components/Header.tsx";
 
 export default function UserManagement() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-
   const navigate = useNavigate();
+  const { data: users, isLoading, isError } = useGetUsersQuery();
+  const [statusFilter, setStatusFilter] = useState<
+    "All" | "Active" | "Suspended"
+  >("All");
+  const [dateFilter, setDateFilter] = useState<string>("");
 
-  const users = [
-    {
-      id: 1,
-      name: "Rexter",
-      email: "rexop89727@besenica.com",
-      status: "Unknown",
-      joined: "02/12/2025",
-      lastLogin: "02/12/2025",
-    },
-    {
-      id: 2,
-      name: "Jane Doe",
-      email: "jane@example.com",
-      status: "Active",
-      joined: "01/12/2025",
-      lastLogin: "02/12/2025",
-    },
-    {
-      id: 3,
-      name: "Michael Lee",
-      email: "mlee@example.com",
-      status: "Suspended",
-      joined: "20/11/2025",
-      lastLogin: "01/12/2025",
-    },
-    {
-      id: 4,
-      name: "Sarah Smith",
-      email: "smith.sarah@example.com",
-      status: "Active",
-      joined: "18/11/2025",
-      lastLogin: "30/11/2025",
-    },
-  ];
+  if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error loading users</div>;
 
   const itemsPerPage = 3;
-  const filteredUsers = users.filter((u) =>
-    u.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  /*const filteredUsers = (users ?? []).filter((u) =>
+    `${u.firstname ?? ""} ${u.lastname ?? ""}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase())      
+  );*/
+
+  const filteredUsers = (users ?? []).filter((u) => {
+    const matchesName = `${u.firstname ?? ""} ${u.lastname ?? ""}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "All" ||
+      u.status?.toLowerCase() === statusFilter.toLowerCase();
+
+    const matchesDate =
+      !dateFilter ||
+      u.datejoined?.startsWith(dateFilter) ||
+      u.lastlogin?.startsWith(dateFilter);
+
+    return matchesName && matchesStatus && matchesDate;
+  });
 
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
@@ -88,15 +80,27 @@ export default function UserManagement() {
               />
             </div>
 
-            <select className="border px-3 py-2 rounded-xl bg-white shadow w-full md:w-40">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(
+                  e.target.value as "All" | "Active" | "Suspended",
+                );
+                setCurrentPage(1);
+              }}
+              className="border px-3 py-2 rounded-xl bg-white shadow w-full md:w-40"
+            >
               <option>All</option>
               <option>Active</option>
               <option>Suspended</option>
-              <option>Unknown</option>
             </select>
-
             <input
               type="date"
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="border px-3 py-2 rounded-xl bg-white shadow w-full md:w-48"
             />
           </div>
@@ -125,25 +129,23 @@ export default function UserManagement() {
               </thead>
 
               <tbody className="divide-y divide-gray-200">
-                {paginatedUsers.map((user) => (
+                {paginatedUsers.map((user, index) => (
                   <tr
-                    onClick={() => navigate(`/user/${user.id}`)}
-                    key={user.id}
+                    onClick={() => navigate(`/user/${user.userId}`)}
+                    key={`${user.userId}-${index}`}
                     className="cursor-pointer hover:bg-gray-100"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">{user.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {user.firstname} {user.lastname}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {user.email}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {user.status}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.joined}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.lastLogin}
-                    </td>
+                    <td className="px-6 py-4">{user.datejoined}</td>
+                    <td className="px-6 py-4">{user.lastlogin}</td>
                   </tr>
                 ))}
               </tbody>
@@ -166,7 +168,7 @@ export default function UserManagement() {
                 onClick={() =>
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
-                className="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700"
+                className="px-4 py-2 bg-pink-600 text-white rounded-xl hover:bg-pink-700"
               >
                 Next
               </button>

@@ -1,141 +1,216 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Aside from "../components/Aside";
 import Header from "../components/Header";
+import LoginPopup from "../components/LoginPopup.tsx";
+import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
+import toast from "react-hot-toast";
+import { getErrorMessage } from "../getErrorMessage.ts";
+import {
+  useGetBookingByIdQuery,
+  useUpdateBookingStatusMutation,
+  useUpdateTransactionStatusMutation,
+} from "../services/bookingApi";
+import { useGetUsersQuery } from "../services/authApi";
 
-// Booking type
-type Booking = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  plan: string;
-  price: string;
-  date: string;
-  time: string;
-  created: string;
-  status: string;
-};
+import type { AdminBooking } from "../services/bookingApi";
 
-const bookings: Booking[] = [
-  {
-    id: 1,
-    name: "Rexter Sun",
-    email: "rexter@example.com",
-    phone: "09023456789",
-    plan: "Premium Glow Package",
-    price: "₦12,000",
-    date: "06/12/2025",
-    time: "1:00 PM - 2:00 PM",
-    created: "03/12/2025",
-    status: "New",
-  },
-  {
-    id: 2,
-    name: "Jane Doe",
-    email: "janedoe@gmail.com",
-    phone: "08123456789",
-    plan: "Basic Skin Consultation",
-    price: "₦3,000",
-    date: "05/12/2025",
-    time: "11:00 AM - 12:00 PM",
-    created: "02/12/2025",
-    status: "Completed",
-  },
-  {
-    id: 3,
-    name: "Michael Lee",
-    email: "michael@example.com",
-    phone: "07099887766",
-    plan: "Advanced Skin Consultation",
-    price: "₦7,000",
-    date: "01/12/2025",
-    time: "3:00 PM - 4:00 PM",
-    created: "30/11/2025",
-    status: "Canceled",
-  },
-];
+type BookingStatus = AdminBooking["status"];
+type TransactionStatus = AdminBooking["transactionStatus"];
+
 export default function BookingDetails() {
-  const { id } = useParams();
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const { bookingId } = useParams<{ bookingId: string }>();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Dummy data
+  const { data: booking, isLoading } = useGetBookingByIdQuery(bookingId!);
+  const { data: users } = useGetUsersQuery();
 
-  // Find booking
-  useEffect(() => {
-    const found = bookings.find((b) => b.id === Number(id)) || null;
-    setBooking(found);
-  }, [id]);
+  const [updateBookingStatus] = useUpdateBookingStatusMutation();
+  const [updateTransactionStatus] = useUpdateTransactionStatusMutation();
 
-  if (!booking) {
-    return (
-      <div className="p-10 text-center text-lg text-gray-600">
-        Booking not found...
-      </div>
-    );
-  }
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [pendingChange, setPendingChange] = useState<{
+    type: "booking" | "transaction";
+    value: string;
+  } | null>(null);
+
+  if (isLoading || !booking) return <div>Loading...</div>;
+  const user = users?.find((u) => u.userId === booking.userId);
+
+  // Color mapping for statuses
+  const bookingColor = {
+    pending: "bg-yellow-100 text-yellow-800",
+    confirmed: "bg-blue-100 text-blue-800",
+    completed: "bg-green-100 text-green-800",
+    cancelled: "bg-red-100 text-red-800",
+  };
+
+  const transactionColor = {
+    pending: "bg-yellow-100 text-yellow-800",
+    successful: "bg-green-100 text-green-800",
+    failed: "bg-red-100 text-red-800",
+  };
+
+  const handleChange = (type: "booking" | "transaction", value: string) => {
+    setPendingChange({ type, value });
+    setModalOpen(true);
+  };
+
+  const confirmChange = async () => {
+    try {
+      if (!pendingChange) return;
+
+      if (pendingChange.type === "booking") {
+        await updateBookingStatus({
+          bookingId: booking._id,
+          status: pendingChange.value as BookingStatus,
+        }).unwrap();
+        toast.success("Booking status has been updated successfully");
+      } else {
+        await updateTransactionStatus({
+          bookingId: booking._id,
+          transactionStatus: pendingChange.value as TransactionStatus,
+        }).unwrap();
+        toast.success(
+          "Booking Transaction-status has been updated successfully",
+        );
+      }
+
+      setModalOpen(false);
+      setPendingChange(null);
+    } catch (err: unknown) {
+      const error = err as FetchBaseQueryError;
+
+      if ("status" in error && error.status === 401) {
+        setShowLogin(true);
+      } else {
+        toast.error(getErrorMessage(err, "Failed to update booking status"));
+      }
+    }
+  };
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-purple-950/20">
-      {/* Sidebar */}
+    <div className="flex h-screen bg-gray-50">
       <Aside
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
       />
-
-      {/* Main Section */}
-      <main className="flex-1 flex flex-col overflow-y-auto">
-        {/* Header */}
+      <main className="flex-1 flex flex-col">
         <Header
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
         />
 
-        {/* PAGE CONTENT */}
-        <div className="mt-16 md:ml-64 p-6 md:p-8">
-          {/* Title */}
-          <h1 className="text-2xl font-bold text-pink-700 dark:text-pink-300 mb-4">
+        <section className="mt-16 md:ml-64 p-6 space-y-6">
+          <h1 className="text-2xl font-semibold text-pink-700">
             Booking Details
           </h1>
 
-          {/* Breadcrumb */}
-          <p className="text-sm text-gray-500 mb-6 dark:text-gray-300">
-            Bookings /
-            <span className="text-pink-600 dark:text-pink-300 font-semibold ml-1">
-              {booking.name}
-            </span>
-          </p>
-
-          {/* Booking Information */}
-          <div className="bg-white dark:bg-pink-900 p-6 rounded-2xl shadow space-y-6">
-            <Detail label="Name" value={booking.name} />
-            <Detail label="Email" value={booking.email} />
-            <Detail label="Phone" value={booking.phone} />
-            <Detail label="Plan" value={booking.plan} />
-            <Detail label="Price" value={booking.price} />
-            <Detail label="Scheduled Date" value={booking.date} />
-            <Detail label="Time" value={booking.time} />
-            <Detail label="Created On" value={booking.created} />
-            <Detail label="Status" value={booking.status} />
+          {/* User Info */}
+          <div className="bg-white rounded-2xl shadow p-5">
+            <h2 className="font-semibold mb-3">User Information</h2>
+            <p>
+              <strong>Name:</strong>{" "}
+              {user ? `${user.firstname ?? ""} ${user.lastname ?? ""}` : "—"}
+            </p>
+            <p>
+              <strong>Email:</strong> {user?.email ?? "—"}
+            </p>
           </div>
-        </div>
+
+          {/* Booking Info */}
+          <div className="bg-white rounded-2xl shadow p-5 grid md:grid-cols-2 gap-4">
+            <p>
+              <strong>Plan:</strong> {booking.consultationPlanId?.name}
+            </p>
+            <p>
+              <strong>Amount:</strong> ₦{booking.consultationPlanId?.amount}
+            </p>
+            <p>
+              <strong>Time Slot:</strong> {booking.timeSlotId?.label} (
+              {booking.timeSlotId?.startTime} - {booking.timeSlotId?.endTime})
+            </p>
+            <p>
+              <strong>Date:</strong>{" "}
+              {new Date(booking.date).toLocaleDateString("en-GB")}
+            </p>
+            <p>
+              <strong>Created:</strong>{" "}
+              {new Date(booking.createdAt).toLocaleString()}
+            </p>
+            <p>
+              <strong>Last Updated:</strong>{" "}
+              {new Date(booking.updatedAt).toLocaleString()}
+            </p>
+          </div>
+
+          {/* Status Controls */}
+          <div className="bg-white rounded-2xl shadow p-5 grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block mb-1 font-semibold">Booking Status</label>
+              <select
+                value={booking.status}
+                onChange={(e) => handleChange("booking", e.target.value)}
+                className={`border rounded-xl px-3 py-2 w-full ${bookingColor[booking.status]}`}
+              >
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block mb-1 font-semibold">
+                Transaction Status
+              </label>
+              <select
+                value={booking.transactionStatus}
+                onChange={(e) => handleChange("transaction", e.target.value)}
+                className={`border rounded-xl px-3 py-2 w-full ${transactionColor[booking.transactionStatus]}`}
+              >
+                <option value="pending">Pending</option>
+                <option value="successful">Successful</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {/* Confirmation Modal */}
+        {modalOpen && pendingChange && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-2xl max-w-sm w-full shadow-lg space-y-4">
+              <h2 className="text-lg font-semibold text-pink-700">
+                Confirm Status Change
+              </h2>
+              <p>
+                Are you sure you want to change the{" "}
+                {pendingChange.type === "booking" ? "booking" : "transaction"}{" "}
+                status to <strong>{pendingChange.value}</strong>? You may not be
+                able to switch back.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setModalOpen(false)}
+                  className="px-4 py-2 border rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmChange}
+                  className="px-4 py-2 bg-pink-700 text-white rounded-xl"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showLogin && <LoginPopup onClose={() => setShowLogin(false)} />}
       </main>
-    </div>
-  );
-}
-
-// Reusable Detail Component
-interface DetailProp {
-  label: string;
-  value: string;
-}
-
-function Detail({ label, value }: DetailProp) {
-  return (
-    <div>
-      <p className="text-gray-500 dark:text-gray-300 text-sm">{label}</p>
-      <p className="font-medium dark:text-white">{value}</p>
     </div>
   );
 }

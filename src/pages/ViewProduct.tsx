@@ -1,41 +1,120 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Breadcrumb } from "../components/Breadcrumbs.tsx";
-import { useState } from "react";
 import Aside from "../components/Aside.tsx";
 import Header from "../components/Header.tsx";
-import { Edit3, X, Upload, Save } from "lucide-react";
+import { Edit3, X, Upload, Save, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
+import {
+  useGetInventoryItemQuery,
+  useUpdateInventoryItemMutation,
+  useDeleteInventoryItemMutation,
+} from "../services/inventoryApi";
+import type { InventoryItem } from "../types/inventory.ts";
+import { getErrorMessage } from "../getErrorMessage.ts";
+//import { getErrorMessage } from "../getErrorMessage.ts";
 
 export default function ViewProduct() {
   const navigate = useNavigate();
+  const [deleteInventoryItem] = useDeleteInventoryItemMutation();
+  const [product, setProduct] = useState<InventoryItem | null>(null);
+  const [updateInventoryItem] = useUpdateInventoryItemMutation();
   const [productImage, setProductImage] = useState<string | null>(null);
+  const { id: productId } = useParams<{ id: string }>();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const { data: productData, isLoading } = useGetInventoryItemQuery(
+    productId || ""
+  );
 
   // Product Data States
-  const [product, setProduct] = useState({
-    name: "Ultimate Foam Cleanser",
-    sku: "ULT1234",
-    category: "Cosmetics",
-    subcategory: "Skincare",
-    brand: "Ultimate",
-    manufacturer: "Ultimate Labs",
-    unit: "Carton",
-    stock: "500",
-    lowStock: "80",
-    expiry: "12/11/2025",
-    costPrice: "2000",
-    sellingPrice: "3000",
-  });
-
   // Handle input changes
+
+  useEffect(() => {
+    if (productData) {
+      setProduct({
+        productName: productData.productName,
+        sku: productData.sku,
+        category: productData.category,
+        subcategory: productData.subcategory ?? "",
+        brandName: productData.brandName ?? "",
+        manufacturer: productData.manufacturer ?? "",
+        unitOfMeasure: productData.unitOfMeasure ?? "",
+        inventory: {
+          stockNumber: productData.inventory.stockNumber,
+          lowStockThreshold: productData.inventory.lowStockThreshold,
+          expiryDate: productData.inventory.expiryDate
+            ? new Date(productData.inventory.expiryDate)
+                .toISOString()
+                .slice(0, 10)
+            : undefined,
+        },
+        pricing: {
+          costPrice: productData.pricing.costPrice,
+          sellingPrice: productData.pricing.sellingPrice,
+        },
+      });
+      setProductImage(productData.productImage ?? null);
+    }
+  }, [productData]);
+
+  type EditableProductKeys =
+    | "productName"
+    | "sku"
+    | "category"
+    | "subcategory"
+    | "brandName"
+    | "manufacturer"
+    | "unitOfMeasure"
+    | "stockNumber"
+    | "lowStockThreshold"
+    | "expiry"
+    | "costPrice"
+    | "sellingPrice";
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
-    key: keyof typeof product
+    key: EditableProductKeys
   ) => {
-    setProduct({ ...product, [key]: e.target.value });
-  };
+    if (!product) return;
 
-  // Image Upload
+    // For nested fields like inventory or pricing, you might need special handling
+    if (key === "stockNumber") {
+      setProduct({
+        ...product,
+        inventory: {
+          ...product.inventory,
+          stockNumber: Number(e.target.value),
+        },
+      });
+    } else if (key === "lowStockThreshold") {
+      setProduct({
+        ...product,
+        inventory: {
+          ...product.inventory,
+          lowStockThreshold: Number(e.target.value),
+        },
+      });
+    } else if (key === "expiry") {
+      setProduct({
+        ...product,
+        inventory: { ...product.inventory, expiryDate: e.target.value },
+      });
+    } else if (key === "costPrice") {
+      setProduct({
+        ...product,
+        pricing: { ...product.pricing, costPrice: Number(e.target.value) },
+      });
+    } else if (key === "sellingPrice") {
+      setProduct({
+        ...product,
+        pricing: { ...product.pricing, sellingPrice: Number(e.target.value) },
+      });
+    } else {
+      // simple string fields
+      setProduct({ ...product, [key]: e.target.value });
+    }
+  };
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -46,12 +125,74 @@ export default function ViewProduct() {
 
   const handleClearImage = () => setProductImage(null);
 
-  // Save changes
-  const handleSave = () => {
-    setIsEditing(false);
-    alert("Product details saved successfully!");
+  const handleSave = async () => {
+    const stockNumber = Number(product?.inventory.stockNumber);
+    const lowStockThreshold = Number(product?.inventory.lowStockThreshold);
+
+    // --------- BASIC NUMBER VALIDATION ---------
+    if (Number.isNaN(stockNumber) || stockNumber < 0) {
+      toast.error("Stock must be a valid non-negative number");
+      return;
+    }
+
+    if (Number.isNaN(lowStockThreshold) || lowStockThreshold < 0) {
+      toast.error("Low stock threshold must be a valid non-negative number");
+      return;
+    }
+
+    // --------- LOW STOCK LOGIC ---------
+    if (lowStockThreshold > stockNumber) {
+      toast.error("Low stock threshold cannot be greater than stock");
+      return;
+    }
+
+    // --------- EXPIRY DATE VALIDATION ---------
+    if (product?.inventory.expiryDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // normalize
+
+      const expiryDate = new Date(product?.inventory.expiryDate);
+      expiryDate.setHours(0, 0, 0, 0);
+
+      if (expiryDate < today) {
+        toast.error("Expiry date cannot be earlier than today");
+        return;
+      }
+    }
+    if (!productId) return;
+
+    const payload = {
+      productName: product?.productName,
+      sku: product?.sku,
+      category: product?.category,
+      subcategory: product?.subcategory,
+      brand: product?.brandName,
+      manufacturer: product?.manufacturer,
+      unit: product?.unitOfMeasure,
+      inventory: {
+        stockNumber: Number(product?.inventory?.stockNumber),
+        lowStockThreshold: Number(product?.inventory?.lowStockThreshold),
+        expiryDate: product?.inventory?.expiryDate || undefined,
+      },
+      pricing: {
+        costPrice: Number(product?.pricing.costPrice),
+        sellingPrice: Number(product?.pricing.sellingPrice),
+      },
+      image: productImage ?? null,
+    };
+
+    try {
+      await updateInventoryItem({ productId, data: payload }).unwrap();
+      setIsEditing(false);
+      toast("Product updated successfully!");
+      navigate("/inventory");
+    } catch (error) {
+      console.error(error);
+      toast.error(getErrorMessage(error, "Failed to update product."));
+    }
   };
 
+  if (isLoading || !product) return <p className="p-6">Loading product...</p>;
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
       <Aside
@@ -68,7 +209,7 @@ export default function ViewProduct() {
 
         <section className="mt-16 md:ml-64 flex-1 p-6">
           {/* Header Section */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex sm:flex-row flex-col sm:gap-0 gap-4 items-center justify-between mb-4">
             <h1 className="font-semibold text-2xl text-pink-700">
               View Details
             </h1>
@@ -94,6 +235,17 @@ export default function ViewProduct() {
               >
                 <X size={18} /> Cancel
               </button>
+              <button
+                onClick={async () => {
+                  if (typeof product.productId === "number") {
+                    await deleteInventoryItem(product.productId);
+                    navigate("/inventory");
+                  }
+                }}
+                className="flex items-center gap-2 w-full px-4 py-2 bg-red-700 text-white rounded-xl"
+              >
+                <Trash2 size={16} /> Delete
+              </button>
             </div>
           </div>
 
@@ -102,7 +254,7 @@ export default function ViewProduct() {
             <Breadcrumb
               items={[
                 { label: "Inventory", onClick: () => navigate("/inventory") },
-                { label: "View Details" },
+                { label: "Inventory Details" },
               ]}
             />
           </div>
@@ -113,12 +265,12 @@ export default function ViewProduct() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium">
-                  Product Name
+                  {product?.productName}
                 </label>
                 <input
                   type="text"
-                  value={product.name}
-                  onChange={(e) => handleChange(e, "name")}
+                  value={product?.productName}
+                  onChange={(e) => handleChange(e, "productName")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
                 />
@@ -128,7 +280,7 @@ export default function ViewProduct() {
                 </label>
                 <input
                   type="text"
-                  value={product.sku}
+                  value={product?.sku}
                   onChange={(e) => handleChange(e, "sku")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
@@ -139,7 +291,7 @@ export default function ViewProduct() {
                 </label>
                 <input
                   type="text"
-                  value={product.category}
+                  value={product?.category}
                   onChange={(e) => handleChange(e, "category")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
@@ -150,7 +302,7 @@ export default function ViewProduct() {
                 </label>
                 <input
                   type="text"
-                  value={product.subcategory}
+                  value={product?.subcategory}
                   onChange={(e) => handleChange(e, "subcategory")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
@@ -161,8 +313,8 @@ export default function ViewProduct() {
                 <label className="block text-sm font-medium">Brand Name</label>
                 <input
                   type="text"
-                  value={product.brand}
-                  onChange={(e) => handleChange(e, "brand")}
+                  value={product?.brandName}
+                  onChange={(e) => handleChange(e, "brandName")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
                 />
@@ -172,7 +324,7 @@ export default function ViewProduct() {
                 </label>
                 <input
                   type="text"
-                  value={product.manufacturer}
+                  value={product?.manufacturer}
                   onChange={(e) => handleChange(e, "manufacturer")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
@@ -183,8 +335,8 @@ export default function ViewProduct() {
                 </label>
                 <input
                   type="text"
-                  value={product.unit}
-                  onChange={(e) => handleChange(e, "unit")}
+                  value={product?.unitOfMeasure}
+                  onChange={(e) => handleChange(e, "unitOfMeasure")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
                 />
@@ -202,8 +354,8 @@ export default function ViewProduct() {
                 </label>
                 <input
                   type="text"
-                  value={product.stock}
-                  onChange={(e) => handleChange(e, "stock")}
+                  value={product?.inventory?.stockNumber}
+                  onChange={(e) => handleChange(e, "stockNumber")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
                 />
@@ -214,8 +366,8 @@ export default function ViewProduct() {
                 </label>
                 <input
                   type="text"
-                  value={product.lowStock}
-                  onChange={(e) => handleChange(e, "lowStock")}
+                  value={product?.inventory?.lowStockThreshold}
+                  onChange={(e) => handleChange(e, "lowStockThreshold")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
                 />
@@ -224,7 +376,8 @@ export default function ViewProduct() {
                 <label className="block text-sm font-medium">Expiry Date</label>
                 <input
                   type="date"
-                  value={product.expiry}
+                  min={new Date().toISOString().split("T")[0]}
+                  value={product?.inventory?.expiryDate}
                   onChange={(e) => handleChange(e, "expiry")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
@@ -241,7 +394,7 @@ export default function ViewProduct() {
                 <label className="block text-sm font-medium">Cost Price</label>
                 <input
                   type="text"
-                  value={product.costPrice}
+                  value={product?.pricing?.costPrice}
                   onChange={(e) => handleChange(e, "costPrice")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
@@ -253,7 +406,7 @@ export default function ViewProduct() {
                 </label>
                 <input
                   type="text"
-                  value={product.sellingPrice}
+                  value={product?.pricing?.sellingPrice}
                   onChange={(e) => handleChange(e, "sellingPrice")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"

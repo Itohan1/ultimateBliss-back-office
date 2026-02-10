@@ -1,71 +1,135 @@
 import fs from "fs";
 import path from "path";
+import Ad from "../models/Ad.js";
 
-const UPLOAD_DIR = path.join(process.cwd(), "uploads", "ads");
+export const createTextAd = async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Please sign in to continue" });
+  }
 
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-let textAds = [];
-
-let imageAds = [];
-
-let textAdId = 1;
-let imageAdId = 1;
-
-export const getTextAds = (req, res) => {
-  res.json(textAds);
-};
-
-export const createTextAd = (req, res) => {
   const { text } = req.body;
-  if (!text) return res.status(400).json({ message: "Text is required" });
 
-  const newAd = {
-    id: textAdId++,
-    text,
-  };
-  textAds.push(newAd);
-  res.status(201).json(newAd);
+  if (!text) {
+    return res.status(400).json({ message: "Advertisement text is required" });
+  }
+
+  console.log(req.user);
+  try {
+    const ad = await Ad.create({
+      type: "text",
+      text,
+      createdBy: req.user.adminId,
+    });
+
+    res.status(201).json(ad);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-export const deleteTextAd = (req, res) => {
-  const { id } = req.params;
-  const index = textAds.findIndex((ad) => ad.id == id);
-  if (index === -1)
-    return res.status(404).json({ message: "Text ad not found" });
-
-  textAds.splice(index, 1);
-  res.json({ message: "Text ad deleted successfully" });
+export const getTextAds = async (req, res) => {
+  try {
+    const ads = await Ad.find({ type: "text" }).sort({ createdOn: -1 });
+    res.json(ads);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-export const getImageAds = (req, res) => {
-  res.json(imageAds);
+/**
+ * Delete Text Ad (AUTHORIZED USERS ONLY)
+ */
+export const deleteTextAd = async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Please sign in to continue" });
+  }
+
+  try {
+    const ad = await Ad.findOneAndDelete({
+      _id: req.params.id,
+      type: "text",
+    });
+
+    if (!ad) {
+      return res.status(404).json({ message: "Text advertisement not found" });
+    }
+
+    res.json({ message: "Text advertisement deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-export const createImageAd = (req, res) => {
-  if (!req.file)
+/**
+ * =========================
+ * IMAGE ADVERTISEMENTS
+ * =========================
+ */
+
+/**
+ * Create Image Ad (AUTHORIZED USERS ONLY)
+ */
+export const createImageAd = async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Please sign in to continue" });
+  }
+
+  if (!req.file) {
     return res.status(400).json({ message: "Image file is required" });
+  }
 
-  const newAd = {
-    id: imageAdId++,
-    filename: req.file.filename,
-    url: `/uploads/ads/${req.file.filename}`,
-  };
-  imageAds.push(newAd);
-  res.status(201).json(newAd);
+  try {
+    const ad = await Ad.create({
+      type: "image",
+      filename: req.file.filename,
+      url: `/uploads/ads/${req.file.filename}`,
+      createdBy: req.user.adminId,
+    });
+
+    res.status(201).json(ad);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-export const deleteImageAd = (req, res) => {
-  const { id } = req.params;
-  const index = imageAds.findIndex((ad) => ad.id == id);
-  if (index === -1)
-    return res.status(404).json({ message: "Image ad not found" });
+/**
+ * Get All Image Ads
+ */
+export const getImageAds = async (req, res) => {
+  try {
+    const ads = await Ad.find({ type: "image" }).sort({ createdOn: -1 });
+    res.json(ads);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
-  const filePath = path.join(UPLOAD_DIR, imageAds[index].filename);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+/**
+ * Delete Image Ad (AUTHORIZED USERS ONLY)
+ */
+export const deleteImageAd = async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Please sign in to continue" });
+  }
 
-  imageAds.splice(index, 1);
-  res.json({ message: "Image ad deleted successfully" });
+  try {
+    const ad = await Ad.findOneAndDelete({
+      _id: req.params.id,
+      type: "image",
+    });
+
+    if (!ad) {
+      return res.status(404).json({ message: "Image advertisement not found" });
+    }
+
+    // Remove file from disk
+    const filePath = path.join(process.cwd(), "uploads", "ads", ad.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    res.json({ message: "Image advertisement deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };

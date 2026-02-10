@@ -10,10 +10,18 @@ export default function Aside({ isSidebarOpen, setIsSidebarOpen }: AsideProps) {
   const menuItems = [
     { name: "Dashboard", path: "/" },
     { name: "Inventory Management", path: "/inventory" },
+    { name: "Order Management", path: "/orders" },
     { name: "Sales Management", path: "/sales" },
+    { name: "Consultation Management", path: "/consultation" },
     { name: "User Management", path: "/users" },
     { name: "Booking Management", path: "/bookings" },
     { name: "Advertisement Management", path: "/ads" },
+    { name: "Admin-Accounts Management", path: "/admin-accounts" },
+    { name: "PaymentMethod Management", path: "/payment-methods" },
+    {
+      name: "Damaged/Returned Management",
+      path: "/inventory/returns",
+    },
     { name: "Learn Management", path: "/learn" },
     { name: "Settings", path: "/settings" },
   ];

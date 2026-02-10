@@ -36,7 +36,7 @@ export const registerUser = async (req, res) => {
     const token = jwt.sign(
       { userId: newUser.userId, email: newUser.email },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.status(201).json({
@@ -58,7 +58,15 @@ export const editUser = async (req, res) => {
   try {
     const userId = req.params.userId;
     const currentUserId = req.user.userId;
-    const { email, phoneNumber, address, firstname, lastname } = req.body;
+    const {
+      email,
+      phoneNumber,
+      address,
+      firstname,
+      lastname,
+      password,
+      currentPassword,
+    } = req.body;
 
     if (userId !== currentUserId) {
       return res
@@ -66,30 +74,47 @@ export const editUser = async (req, res) => {
         .json({ message: "Not allowed to edit this account" });
     }
 
-    if (email) {
-      const existingEmail = await User.findOne({ email });
-      if (existingEmail && existingEmail.userId.toString() !== userId) {
-        return res.status(400).json({ message: "Email already in use" });
-      }
-    }
-
-    const updatedData = {};
-
-    if (email) updatedData.email = email;
-    if (phoneNumber) updatedData.phonenumber = phoneNumber;
-    if (address) updatedData.address = address;
-    if (firstname) updatedData.firstname = firstname;
-    if (lastname) updatedData.lastname = lastname;
-
-    const updatedUser = await User.findOneAndUpdate(
-      { userId },
-      { $set: updatedData },
-      { new: true }
-    ).select("-password");
-
-    if (!updatedUser) {
+    const user = await User.findOne({ userId }).select("+password");
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    // Only check current password if changing password
+    if (password) {
+      if (!currentPassword) {
+        return res
+          .status(400)
+          .json({ message: "Current password is required to change password" });
+      }
+
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res
+          .status(400)
+          .json({ message: "Current password is incorrect" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      user.password = hashedPassword;
+    }
+
+    // Update other fields
+    if (firstname) user.firstname = firstname;
+    if (lastname) user.lastname = lastname;
+    if (phoneNumber) user.phonenumber = phoneNumber;
+    if (address) user.address = address;
+    if (email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail && existingEmail.userId !== userId) {
+        return res.status(400).json({ message: "Email already in use" });
+      }
+      user.email = email;
+    }
+
+    await user.save();
+
+    const updatedUser = user.toObject();
+    delete updatedUser.password;
 
     return res.status(200).json({
       message: "User details updated successfully",
@@ -104,7 +129,7 @@ export const editUser = async (req, res) => {
 export const getUsers = async (req, res) => {
   try {
     const users = await User.find().select(
-      "firstname lastname email status datejoined lastlogin"
+      "firstname userId lastname email status datejoined lastlogin",
     );
     res.status(200).json(users);
   } catch (err) {
@@ -124,7 +149,7 @@ export const findUser = async (req, res) => {
         .json({ message: "Not allowed to edit this account" });
     }
     const user = await User.findOne({ userId }).select(
-      "firstname lastname email status datejoined lastlogin"
+      "firstname lastname email status datejoined lastlogin password",
     );
 
     if (!user) {
