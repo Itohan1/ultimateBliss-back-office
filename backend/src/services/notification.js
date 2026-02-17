@@ -125,6 +125,13 @@ export async function markAllNotificationsAsRead(userId) {
   return Notification.updateMany({ userId, isRead: false }, { isRead: true });
 }
 
+export async function markAllAdminNotificationsAsRead() {
+  return Notification.updateMany(
+    { recipientRole: { $in: ["admin", "both"] }, isRead: false },
+    { isRead: true },
+  );
+}
+
 /**
  * DELETE notification
  */

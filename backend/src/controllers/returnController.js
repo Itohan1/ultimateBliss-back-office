@@ -1,5 +1,9 @@
 import ReturnItem from "../models/ReturnItem.js";
 import Inventory from "../models/Inventory.js";
+import { uploadImageBuffer } from "../services/media.js";
+
+const toBoolean = (value) =>
+  value === true || value === "true" || value === 1 || value === "1";
 
 /* ================================
    CREATE RETURN / DAMAGED ITEM
@@ -28,11 +32,18 @@ export const createReturnItem = async (req, res) => {
       });
     }
 
+    const shouldAdjustInventory =
+      type === "damaged"
+        ? true
+        : type === "customer_return"
+          ? false
+          : toBoolean(adjustInventory);
+    const quantity = Number(product.quantity);
     let inventoryAdjusted = false;
 
     // Inventory subtraction rules
     const canAdjustInventory =
-      adjustInventory === true && type !== "customer_return"; // 👈 IMPORTANT
+      shouldAdjustInventory && type !== "customer_return"; // 👈 IMPORTANT
 
     if (canAdjustInventory) {
       const inventoryItem = await Inventory.findOne({
@@ -47,25 +58,39 @@ export const createReturnItem = async (req, res) => {
 
       const availableStock = inventoryItem.inventory.stockNumber;
 
-      if (product.quantity > availableStock) {
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return res.status(400).json({
+          message: "Invalid product quantity",
+        });
+      }
+
+      if (quantity > availableStock) {
         return res.status(400).json({
           message: "Damaged quantity exceeds available stock",
         });
       }
 
-      inventoryItem.inventory.stockNumber -= product.quantity;
+      inventoryItem.inventory.stockNumber -= quantity;
       await inventoryItem.save();
 
       inventoryAdjusted = true;
     }
 
+    let imageUrl = null;
+    if (req.file) {
+      const uploadResult = await uploadImageBuffer(req.file, {
+        folder: "returns",
+        publicIdPrefix: "return",
+      });
+      imageUrl = uploadResult.url;
+    }
     const returnItem = await ReturnItem.create({
       type,
-      adjustInventory,
+      adjustInventory: shouldAdjustInventory,
       contact,
-      product,
+      product: { ...product, quantity },
       reason,
-      image: req.file ? `${uploads}${req.file.filename}` : null,
+      image: imageUrl,
       inventoryAdjusted,
     });
 
@@ -95,15 +120,25 @@ export const updateReturnItem = async (req, res) => {
     // ✅ Only update fields that admins are allowed to edit
     if (type) returnItem.type = type;
     if (reason) returnItem.reason = reason;
-    if (adjustInventory !== undefined)
-      returnItem.adjustInventory = adjustInventory;
+    if (adjustInventory !== undefined) {
+      returnItem.adjustInventory =
+        returnItem.type === "damaged"
+          ? true
+          : returnItem.type === "customer_return"
+            ? false
+            : toBoolean(adjustInventory);
+    }
 
     // ❌ DO NOT TOUCH product object on update
     // ❌ DO NOT TOUCH contact object on update
 
     // Handle new image
     if (req.file) {
-      returnItem.image = `/uploads/returns/${req.file.filename}`;
+      const uploadResult = await uploadImageBuffer(req.file, {
+        folder: "returns",
+        publicIdPrefix: "return",
+      });
+      returnItem.image = uploadResult.url;
     }
 
     await returnItem.save();
@@ -126,7 +161,7 @@ export const deleteReturnItem = async (req, res) => {
     if (!returnItem)
       return res.status(404).json({ message: "Return item not found" });
 
-    await returnItem.remove();
+    await returnItem.deleteOne();
 
     res.status(200).json({ success: true });
   } catch (err) {

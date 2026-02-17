@@ -7,16 +7,9 @@ import {
   deleteReturnItem,
 } from "../controllers/returnController.js";
 import { protect, adminOnly } from "../middleware/adminAuth.js";
-import multer from "multer";
+import { upload } from "../middleware/upload.js";
 
 const router = express.Router();
-const storage = multer.diskStorage({
-  destination: "uploads",
-  filename: (req, file, cb) =>
-    cb(null, `ad_${Date.now()}_${file.originalname}`),
-});
-
-const upload = multer({ storage });
 // ADMIN ROUTES
 router.post(
   "/",

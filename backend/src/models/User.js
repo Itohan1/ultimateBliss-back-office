@@ -11,8 +11,9 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, "Please use a valid email address"],
@@ -40,6 +41,9 @@ const userSchema = new mongoose.Schema(
     },
     phonenumber: {
       type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
       validate: {
         validator: (v) => !v || v.length >= 10,
         message: "Phone number must be at least 10 characters",

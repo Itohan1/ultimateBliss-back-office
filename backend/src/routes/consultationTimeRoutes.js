@@ -20,6 +20,7 @@ router.get("/all", getAllTimeSlots);
 /* Admin */
 router.post("/", verifyToken, adminMiddleware, createTimeSlot);
 router.patch("/:timeSlotId", verifyToken, adminMiddleware, updateTimeSlot);
+router.put("/:timeSlotId", verifyToken, adminMiddleware, updateTimeSlot);
 
 /* User booking */
 router.post("/:timeSlotId/book", verifyToken, bookTimeSlot);

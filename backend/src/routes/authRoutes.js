@@ -4,10 +4,12 @@ import {
   editUser,
   getUsers,
   findUser,
+  findUserAdmin,
+  updateUserStatusAdmin,
 } from "../controllers/authController.js";
 
 import { login } from "../controllers/login.js";
-import { verifyToken } from "../middleware/auth.js";
+import { verifyToken, adminMiddleware } from "../middleware/auth.js";
 import { sendOtp, verifyOtp } from "../controllers/otpController.js";
 
 const router = express.Router();
@@ -16,6 +18,13 @@ router.post("/register", registerUser);
 router.put("/users/:userId", verifyToken, editUser);
 router.get("/users", getUsers);
 router.get("/users/:userId", verifyToken, findUser);
+router.get("/admin/users/:userId", verifyToken, adminMiddleware, findUserAdmin);
+router.patch(
+  "/admin/users/:userId/status",
+  verifyToken,
+  adminMiddleware,
+  updateUserStatusAdmin
+);
 router.post("/login", login);
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);

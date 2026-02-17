@@ -1,7 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import connectDB from "./src/config/db.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import adRoutes from "./src/routes/adRoutes.js";
 import categoryRoutes from "./src/routes/categoryRoutes.js";
@@ -21,15 +20,17 @@ import { expirePendingBookings } from "./src/cron/expireBookings.js";
 import returnRoutes from "./src/routes/returns.js";
 import path from "path";
 import notificationRoutes from "./src/routes/notificationRoutes.js";
+import whatsappRoutes from "./src/routes/whatsappRoutes.js";
 import Contact from "./src/controllers/contactController.js";
 import { attachSession, optionalAuth } from "./src/middleware/auth.js";
+import multer from "multer";
+import discountRoutes from "./src/routes/discountRoutes.js";
 dotenv.config();
 
 const app = express();
 app.use(cors());
 
 app.use(express.json());
-connectDB();
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Expose-Headers", "X-Session-Id");
   next();
@@ -38,6 +39,7 @@ cron.schedule("*/5 * * * *", expirePendingBookings);
 app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/contact", optionalAuth, attachSession, Contact);
 app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/discounts", discountRoutes);
 app.use("/api/v1/consultation-plans", consultationPlanRoutes);
 app.use("/api/v1/consultation-times", consultationTimeRoutes);
 app.use("/api/v1/admins", adminAuthRoutes);
@@ -52,6 +54,26 @@ app.use("/api/v1/addresses", addressRoutes);
 app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1/learn", learnRoutes);
+app.use("/api/whatsapp", whatsappRoutes);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+app.use((err, _req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ message: "Image must be 25MB or smaller" });
+    }
+    return res.status(400).json({ message: err.message });
+  }
+
+  if (err?.message === "Only image uploads are allowed") {
+    return res.status(400).json({ message: err.message });
+  }
+
+  if (err) {
+    return res.status(500).json({ message: err.message || "Server error" });
+  }
+
+  return next();
+});
 
 export default app;

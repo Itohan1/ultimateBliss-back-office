@@ -8,6 +8,7 @@ import {
   getAdminNotificationsController,
   markAsRead,
   markAllAsRead,
+  markAllAdminAsRead,
 } from "../controllers/notification.js";
 import { protect, adminOnly } from "../middleware/adminAuth.js";
 
@@ -23,6 +24,7 @@ router.get("/user/:userId", getNotifications);
 /* Update */
 router.patch("/:id", updateNotificationById);
 router.patch("/:id/read", markAsRead);
+router.patch("/admin/read-all", protect, adminOnly, markAllAdminAsRead);
 router.patch("/user/:userId/read-all", markAllAsRead);
 
 /* Delete */

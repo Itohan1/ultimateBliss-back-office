@@ -31,7 +31,10 @@ export const createCategory = async (req, res) => {
 // Get all active categories
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true }).sort({
+    const includeInactive = req.query.includeInactive === "true";
+    const query = includeInactive ? {} : { isActive: true };
+
+    const categories = await Category.find(query).sort({
       createdAt: -1,
     });
     res.status(200).json(categories);
@@ -71,17 +74,13 @@ export const updateCategory = async (req, res) => {
   }
 };
 
-// Soft delete category
+// Delete category
 export const deleteCategory = async (req, res) => {
   try {
-    const deleted = await Category.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const deleted = await Category.findByIdAndDelete(req.params.id);
     if (!deleted)
       return res.status(404).json({ message: "Category not found" });
-    res.status(200).json({ message: "Category disabled successfully" });
+    res.status(200).json({ message: "Category deleted successfully" });
   } catch (error) {
     console.error("Delete category error:", error);
     res.status(500).json({ message: "Server error" });

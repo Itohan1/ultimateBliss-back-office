@@ -22,7 +22,12 @@ const CartItemSchema = new mongoose.Schema(
       required: true,
     },
 
-    price: {
+    sellingPrice: {
+      type: Number,
+      required: true,
+    },
+
+    discountedPrice: {
       type: Number,
       required: true,
     },
@@ -34,7 +39,7 @@ const CartItemSchema = new mongoose.Schema(
 
     discountType: {
       type: String,
-      enum: ["free", "promotion", "none"],
+      enum: ["percentage", "flat", "free", "none"],
       default: "none",
     },
 
@@ -48,8 +53,23 @@ const CartItemSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+
+    freeQuantity: {
+      type: Number,
+      default: 1,
+    },
+
+    minPurchaseQuantity: {
+      type: Number,
+      default: 1, // e.g. Buy 2 get 1 free → minPurchaseQuantity = 2
+    },
+
+    freeItemDescription: {
+      type: String,
+      default: "",
+    },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const CartSchema = new mongoose.Schema(
@@ -67,7 +87,7 @@ const CartSchema = new mongoose.Schema(
     },
 
     sessionId: {
-      type: String,
+      type: String, // guest session
       default: null,
       index: true,
     },
@@ -97,10 +117,10 @@ const CartSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       default: null,
-      index: { expires: "7d" },
+      index: { expires: "7d" }, // auto-delete cart after 7 days
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Cart", CartSchema);

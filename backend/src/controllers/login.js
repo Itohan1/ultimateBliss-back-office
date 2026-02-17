@@ -3,19 +3,59 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Cart from "../models/Cart.js";
 
+const normalizeEmail = (value = "") => value.trim().toLowerCase();
+const normalizePhone = (value = "") => value.trim().replace(/[^\d+]/g, "");
+const canonicalPhone = (value = "") => normalizePhone(value).replace(/\D/g, "");
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phoneRegex = /^\+?\d{8,15}$/;
+
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, phone, password } = req.body;
+    const normalizedEmail = email?.includes("@") ? normalizeEmail(email) : "";
+    const fallbackPhoneFromEmail = email && !email.includes("@") ? email : "";
+    const normalizedPhone = normalizePhone(phone || fallbackPhoneFromEmail);
 
     /* ---------- Validate input ---------- */
-    if (!email || !password) {
+    if ((!normalizedEmail && !normalizedPhone) || !password) {
+      return res.status(400).json({
+        message: "Email or phone number, and password are required",
+      });
+    }
+
+    if (normalizedEmail && !emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Please provide a valid email" });
+    }
+
+    if (normalizedPhone && !phoneRegex.test(normalizedPhone)) {
       return res
         .status(400)
-        .json({ message: "Email and password are required" });
+        .json({ message: "Please provide a valid phone number" });
     }
 
     /* ---------- Find user ---------- */
-    const user = await User.findOne({ email }).select("+password");
+    const conditions = [];
+    if (normalizedEmail) {
+      conditions.push({ email: normalizedEmail });
+    }
+    if (normalizedPhone) {
+      conditions.push({ phonenumber: normalizedPhone });
+    }
+
+    let user = await User.findOne({ $or: conditions }).select("+password");
+
+    // Fallback for legacy phone formats already stored with symbols/spaces.
+    if (!user && normalizedPhone) {
+      const usersWithPhone = await User.find({
+        phonenumber: { $exists: true, $ne: null },
+      }).select("+password");
+
+      const requestedPhone = canonicalPhone(normalizedPhone);
+      user = usersWithPhone.find(
+        (entry) => canonicalPhone(entry.phonenumber) === requestedPhone,
+      );
+    }
+
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -73,7 +113,11 @@ export const login = async (req, res) => {
 
     /* ---------- Create JWT ---------- */
     const token = jwt.sign(
-      { userId: user.userId, email: user.email },
+      {
+        userId: user.userId,
+        ...(user.email && { email: user.email }),
+        ...(user.phonenumber && { phone: user.phonenumber }),
+      },
       process.env.JWT_SECRET,
       { expiresIn: "7d" },
     );
@@ -85,7 +129,8 @@ export const login = async (req, res) => {
         userId: user.userId,
         firstname: user.firstname,
         lastname: user.lastname,
-        email: user.email,
+        email: user.email || "",
+        phonenumber: user.phonenumber,
       },
     });
   } catch (err) {

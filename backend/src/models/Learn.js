@@ -18,6 +18,11 @@ const LearnSchema = new mongoose.Schema(
       required: true,
     },
 
+    imagePublicId: {
+      type: String,
+      default: null,
+    },
+
     isActive: {
       type: Boolean,
       default: true,

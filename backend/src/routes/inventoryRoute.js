@@ -15,16 +15,22 @@ import {
   attachSession,
 } from "../middleware/auth.js";
 import { toggleProductLike } from "../controllers/likeController.js";
+import { upload } from "../middleware/upload.js";
 
 const router = express.Router();
 
-router.post("/", verifyToken, createInventoryItem);
+router.post("/", verifyToken, upload.single("image"), createInventoryItem);
 router.get("/best-offers", optionalAuth, attachSession, getBestOffers);
 router.get("/", optionalAuth, attachSession, getInventoryItems);
 router.get("/:productId", getInventoryItem);
-router.put("/:productId", verifyToken, updateInventoryItem);
+router.put(
+  "/:productId",
+  verifyToken,
+  upload.single("image"),
+  updateInventoryItem,
+);
 router.delete("/:productId", verifyToken, deleteInventoryItem);
-router.post("/:productId/reviews", addReview);
+router.post("/:productId/review", verifyToken, addReview);
 router.get("/:productId/reviews", getReviews);
 
 /* LIKE / UNLIKE */

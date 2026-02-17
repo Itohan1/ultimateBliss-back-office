@@ -7,11 +7,12 @@ import {
   changePaymentMethodStatus,
 } from "../controllers/paymentController.js";
 import { protect, adminOnly } from "../middleware/adminAuth.js";
+import { optionalAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // Admin routes
-router.get("/", getPaymentMethods);
+router.get("/", optionalAuth, getPaymentMethods);
 
 router.post("/", protect, adminOnly, createPaymentMethod);
 router.put("/:id", protect, adminOnly, updatePaymentMethod);

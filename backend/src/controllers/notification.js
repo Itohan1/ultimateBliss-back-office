@@ -7,6 +7,7 @@ import {
   deleteNotification,
   markNotificationAsRead,
   markAllNotificationsAsRead,
+  markAllAdminNotificationsAsRead,
 } from "../services/notification.js";
 
 /**
@@ -91,6 +92,18 @@ export async function markAllAsRead(req, res) {
   try {
     await markAllNotificationsAsRead(req.params.userId);
     res.json({ message: "All notifications marked as read" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+/**
+ * PATCH /notifications/admin/read-all
+ */
+export async function markAllAdminAsRead(req, res) {
+  try {
+    await markAllAdminNotificationsAsRead();
+    res.json({ message: "All admin notifications marked as read" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

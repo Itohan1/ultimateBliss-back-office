@@ -19,6 +19,12 @@ const ORDER_STATUSES = [
   "completed",
   "cancelled",
 ];
+const ORDER_STATUSES_REQUIRING_SUCCESS_TRANSACTION = new Set([
+  "packaging",
+  "shipped",
+  "delivered",
+  "completed",
+]);
 
 // Generate a simple order ID (incremental)
 let orderCounter = 1; // You can replace this with a more robust generator
@@ -72,12 +78,44 @@ export const createOrder = async (req, res) => {
 
     const transactionId = uuidv4();
 
+    // 🧮 Rebuild items with correct free item logic
+    const recalculatedItems = cart.items.map((item) => {
+      let freeQty = 0;
+
+      if (
+        item.discountType === "free" &&
+        item.quantity >= item.minPurchaseQuantity
+      ) {
+        freeQty = Math.floor(item.quantity / item.minPurchaseQuantity);
+      }
+
+      return {
+        ...(item.toObject?.() ?? item),
+        freeQuantity: freeQty,
+      };
+    });
+
     // 🧾 3️⃣ Create order
-    const order = new Order({
+    /*const order = new Order({
       orderId: cart.orderId, // reuse cart orderId
       userId,
       transactionId,
       items: cart.items,
+      subTotal: cart.subTotal,
+      totalDiscount: cart.totalDiscount,
+      grandTotal: cart.grandTotal,
+      billing,
+      paymentMethodId,
+      transactionStatus: "pending",
+      orderStatus: "pending",
+    });*/
+    const order = new Order({
+      orderId: cart.orderId,
+      userId,
+      transactionId,
+
+      items: recalculatedItems, // ✅ use recalculated items
+
       subTotal: cart.subTotal,
       totalDiscount: cart.totalDiscount,
       grandTotal: cart.grandTotal,
@@ -161,6 +199,19 @@ export const updateOrderStatus = async (req, res) => {
       !TRANSACTION_STATUSES.includes(transactionStatus)
     ) {
       return res.status(400).json({ error: "Invalid transaction status" });
+    }
+
+    const nextTransactionStatus = transactionStatus || order.transactionStatus;
+
+    if (
+      orderStatus &&
+      ORDER_STATUSES_REQUIRING_SUCCESS_TRANSACTION.has(orderStatus) &&
+      nextTransactionStatus !== "success"
+    ) {
+      return res.status(400).json({
+        error:
+          "Transaction status must be success before moving order to packaging, shipped, delivered, or completed",
+      });
     }
 
     if (orderStatus === "delivered") {
@@ -292,6 +343,19 @@ export const updateOrderStatuses = async (req, res) => {
       !TRANSACTION_STATUSES.includes(transactionStatus)
     ) {
       return res.status(400).json({ error: "Invalid transaction status" });
+    }
+
+    const nextTransactionStatus = transactionStatus || order.transactionStatus;
+
+    if (
+      orderStatus &&
+      ORDER_STATUSES_REQUIRING_SUCCESS_TRANSACTION.has(orderStatus) &&
+      nextTransactionStatus !== "success"
+    ) {
+      return res.status(400).json({
+        error:
+          "Transaction status must be success before moving order to packaging, shipped, delivered, or completed",
+      });
     }
 
     // 3️⃣ Update fields

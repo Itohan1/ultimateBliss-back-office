@@ -1,5 +1,4 @@
 import express from "express";
-import multer from "multer";
 import { verifyToken } from "../middleware/auth.js";
 import {
   createTextAd,
@@ -10,16 +9,9 @@ import {
   deleteImageAd,
 } from "../controllers/adController.js";
 import { adProtect, protect, adminOnly } from "../middleware/adminAuth.js";
+import { upload } from "../middleware/upload.js";
 
 const router = express.Router();
-
-const storage = multer.diskStorage({
-  destination: "uploads/ads",
-  filename: (req, file, cb) =>
-    cb(null, `ad_${Date.now()}_${file.originalname}`),
-});
-
-const upload = multer({ storage });
 
 // Text ads
 router.post("/text", protect, adminOnly, createTextAd);

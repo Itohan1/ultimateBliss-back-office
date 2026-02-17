@@ -28,6 +28,11 @@ const inventorySchema = new mongoose.Schema(
     },
 
     subcategory: String,
+    description: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     brandName: String,
     manufacturer: String,
     unitOfMeasure: String,
@@ -65,6 +70,10 @@ const inventorySchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    productImagePublicId: {
+      type: String,
+      default: null,
+    },
 
     /* SOCIAL SIGNALS */
     totalLikes: {
@@ -87,8 +96,8 @@ const inventorySchema = new mongoose.Schema(
     reviews: [
       {
         userId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
+          type: String,
+          trim: true,
           required: true,
         },
         rating: { type: Number, required: true, min: 1, max: 5 },

@@ -1,6 +1,5 @@
-import fs from "fs";
-import path from "path";
 import Ad from "../models/Ad.js";
+import { deleteImageByPublicId, uploadImageBuffer } from "../services/media.js";
 
 export const createTextAd = async (req, res) => {
   if (!req.user) {
@@ -79,10 +78,15 @@ export const createImageAd = async (req, res) => {
   }
 
   try {
+    const uploaded = await uploadImageBuffer(req.file, {
+      folder: "ultimatebliss/ads",
+      publicIdPrefix: "ad",
+    });
+
     const ad = await Ad.create({
       type: "image",
-      filename: req.file.filename,
-      url: `/uploads/ads/${req.file.filename}`,
+      filename: uploaded.publicId,
+      url: uploaded.url,
       createdBy: req.user.adminId,
     });
 
@@ -122,10 +126,10 @@ export const deleteImageAd = async (req, res) => {
       return res.status(404).json({ message: "Image advertisement not found" });
     }
 
-    // Remove file from disk
-    const filePath = path.join(process.cwd(), "uploads", "ads", ad.filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    try {
+      await deleteImageByPublicId(ad.filename);
+    } catch (cloudinaryError) {
+      console.warn("Cloudinary delete warning:", cloudinaryError?.message);
     }
 
     res.json({ message: "Image advertisement deleted successfully" });

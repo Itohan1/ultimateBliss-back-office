@@ -1,14 +1,28 @@
 import Inventory from "../models/Inventory.js";
 import Counter from "../models/Counter.js";
 import Like from "../models/Liked.js";
+import User from "../models/User.js";
+import {
+  deleteImageByPublicId,
+  uploadImageBuffer,
+  uploadImageDataUri,
+} from "../services/media.js";
 
-/* ================================
-   Helpers
-================================ */
+const isDataImageUri = (value) =>
+  typeof value === "string" && value.startsWith("data:image/");
 
-const parseProductId = (value) => {
-  const id = Number(value);
-  return Number.isInteger(id) ? id : null;
+const isHttpUrl = (value) =>
+  typeof value === "string" && /^https?:\/\//i.test(value);
+
+const parseRequestPayload = (req) => {
+  if (typeof req.body?.payload === "string") {
+    try {
+      return JSON.parse(req.body.payload);
+    } catch {
+      return null;
+    }
+  }
+  return req.body ?? {};
 };
 
 const getNextProductId = async () => {
@@ -20,23 +34,29 @@ const getNextProductId = async () => {
   return counter.seq;
 };
 
-/* ================================
-   CREATE INVENTORY ITEM
-================================ */
 export const createInventoryItem = async (req, res) => {
+  let uploadedImage = null;
+
   try {
+    const payload = parseRequestPayload(req);
+
+    if (!payload) {
+      return res.status(400).json({ message: "Invalid payload JSON" });
+    }
+
     const {
       productName,
       sku,
       category,
       subcategory,
+      description,
       brandName,
       manufacturer,
       unitOfMeasure,
       inventory = {},
       pricing = {},
       productImage,
-    } = req.body;
+    } = payload;
 
     if (!productName || !sku || !category) {
       return res.status(400).json({
@@ -46,37 +66,53 @@ export const createInventoryItem = async (req, res) => {
 
     const productId = await getNextProductId();
 
+    if (req.file) {
+      uploadedImage = await uploadImageBuffer(req.file, {
+        folder: "ultimatebliss/inventory",
+        publicIdPrefix: `product_${sku}`,
+      });
+    } else if (productImage) {
+      if (isDataImageUri(productImage)) {
+        uploadedImage = await uploadImageDataUri(productImage, {
+          folder: "ultimatebliss/inventory",
+          publicIdPrefix: `product_${sku}`,
+        });
+      } else if (!isHttpUrl(productImage)) {
+        return res.status(400).json({
+          message:
+            "productImage must be a valid image data URI or an absolute URL",
+        });
+      }
+    }
+
     const item = await Inventory.create({
       productId,
       productName,
       sku,
       category,
       subcategory,
+      description: description ?? "",
       brandName,
       manufacturer,
       unitOfMeasure,
-
       inventory: {
         stockNumber: inventory.stockNumber ?? 0,
         lowStockThreshold: inventory.lowStockThreshold ?? 0,
         expiryDate: inventory.expiryDate ?? null,
       },
-
       pricing: {
         costPrice: pricing.costPrice ?? 0,
         sellingPrice: pricing.sellingPrice ?? 0,
         discount: pricing.discount ?? 0,
         discountType: pricing.discountType ?? "none",
-
-        // 🔥 NEW
         freeOffer: {
-          minQuantityOfPurchase: pricing.freeOffer?.minQuantityOfPurchase ?? 0,
-          freeItemQuantity: pricing.freeOffer?.freeItemQuantity ?? 0,
+          minQuantityOfPurchase: pricing.freeOffer?.minQuantityOfPurchase ?? 1,
+          freeItemQuantity: pricing.freeOffer?.freeItemQuantity ?? 1,
           freeItemDescription: pricing.freeOffer?.freeItemDescription ?? "",
         },
       },
-
-      productImage: productImage ?? null,
+      productImage: uploadedImage?.url ?? productImage ?? null,
+      productImagePublicId: uploadedImage?.publicId ?? null,
     });
 
     res.status(201).json({
@@ -84,14 +120,19 @@ export const createInventoryItem = async (req, res) => {
       product: item,
     });
   } catch (err) {
+    if (uploadedImage?.publicId) {
+      try {
+        await deleteImageByPublicId(uploadedImage.publicId);
+      } catch (cloudinaryError) {
+        console.warn("Cloudinary delete warning:", cloudinaryError?.message);
+      }
+    }
+
     console.error("Create inventory error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-/* ================================
-   GET ALL INVENTORY (GUEST OK)
-================================ */
 export const getInventoryItems = async (req, res) => {
   try {
     const userId = req.user?.userId || null;
@@ -100,12 +141,10 @@ export const getInventoryItems = async (req, res) => {
     const items = await Inventory.find().lean();
 
     let likedProductIds = new Set();
-
     if (userId || sessionId) {
       const likes = await Like.find(userId ? { userId } : { sessionId }).select(
         "productId",
       );
-
       likedProductIds = new Set(likes.map((l) => l.productId));
     }
 
@@ -121,9 +160,6 @@ export const getInventoryItems = async (req, res) => {
   }
 };
 
-/* ================================
-   GET SINGLE INVENTORY ITEM
-================================ */
 export const getInventoryItem = async (req, res) => {
   try {
     const { productId } = req.params;
@@ -139,7 +175,6 @@ export const getInventoryItem = async (req, res) => {
     }
 
     let isLiked = false;
-
     if (userId || sessionId) {
       const liked = await Like.findOne(
         userId
@@ -159,13 +194,20 @@ export const getInventoryItem = async (req, res) => {
   }
 };
 
-/* ================================
-   UPDATE INVENTORY ITEM
-================================ */
 export const updateInventoryItem = async (req, res) => {
   try {
     const { productId } = req.params;
-    const payload = { ...req.body };
+    const parsedPayload = parseRequestPayload(req);
+    if (!parsedPayload) {
+      return res.status(400).json({ message: "Invalid payload JSON" });
+    }
+
+    const payload = { ...parsedPayload };
+    const item = await Inventory.findOne({ productId: Number(productId) });
+
+    if (!item) {
+      return res.status(404).json({ message: "Product not found" });
+    }
 
     if (payload.pricing) {
       payload.pricing.freeOffer = {
@@ -175,6 +217,65 @@ export const updateInventoryItem = async (req, res) => {
         freeItemDescription:
           payload.pricing.freeOffer?.freeItemDescription ?? "",
       };
+    }
+
+    if (req.file) {
+      const uploaded = await uploadImageBuffer(req.file, {
+        folder: "ultimatebliss/inventory",
+        publicIdPrefix: `product_${item.sku}`,
+      });
+
+      payload.productImage = uploaded.url;
+      payload.productImagePublicId = uploaded.publicId;
+
+      try {
+        await deleteImageByPublicId(item.productImagePublicId);
+      } catch (cloudinaryError) {
+        console.warn("Cloudinary delete warning:", cloudinaryError?.message);
+      }
+    } else if (Object.prototype.hasOwnProperty.call(payload, "productImage")) {
+      const incomingImage = payload.productImage;
+
+      if (!incomingImage) {
+        payload.productImage = null;
+        payload.productImagePublicId = null;
+
+        try {
+          await deleteImageByPublicId(item.productImagePublicId);
+        } catch (cloudinaryError) {
+          console.warn("Cloudinary delete warning:", cloudinaryError?.message);
+        }
+      } else if (isDataImageUri(incomingImage)) {
+        const uploaded = await uploadImageDataUri(incomingImage, {
+          folder: "ultimatebliss/inventory",
+          publicIdPrefix: `product_${item.sku}`,
+        });
+
+        payload.productImage = uploaded.url;
+        payload.productImagePublicId = uploaded.publicId;
+
+        try {
+          await deleteImageByPublicId(item.productImagePublicId);
+        } catch (cloudinaryError) {
+          console.warn("Cloudinary delete warning:", cloudinaryError?.message);
+        }
+      } else if (isHttpUrl(incomingImage)) {
+        payload.productImage = incomingImage;
+
+        if (item.productImagePublicId) {
+          try {
+            await deleteImageByPublicId(item.productImagePublicId);
+          } catch (cloudinaryError) {
+            console.warn("Cloudinary delete warning:", cloudinaryError?.message);
+          }
+          payload.productImagePublicId = null;
+        }
+      } else {
+        return res.status(400).json({
+          message:
+            "productImage must be a valid image data URI, an absolute URL, or null",
+        });
+      }
     }
 
     const updatedItem = await Inventory.findOneAndUpdate(
@@ -187,8 +288,6 @@ export const updateInventoryItem = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    await updatedItem.save();
-
     res.status(200).json({
       message: "Inventory item updated successfully",
       product: updatedItem,
@@ -199,9 +298,6 @@ export const updateInventoryItem = async (req, res) => {
   }
 };
 
-/* ================================
-   DELETE INVENTORY ITEM
-================================ */
 export const deleteInventoryItem = async (req, res) => {
   try {
     const { productId } = req.params;
@@ -214,6 +310,12 @@ export const deleteInventoryItem = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
+    try {
+      await deleteImageByPublicId(deletedItem.productImagePublicId);
+    } catch (cloudinaryError) {
+      console.warn("Cloudinary delete warning:", cloudinaryError?.message);
+    }
+
     res.status(200).json({
       message: "Inventory item deleted successfully",
     });
@@ -223,10 +325,6 @@ export const deleteInventoryItem = async (req, res) => {
   }
 };
 
-/* ================================
-   GET BEST OFFERS (TOP DISCOUNTS)
-   Pagination: 5 per page
-================================ */
 export const getBestOffers = async (req, res) => {
   try {
     const limit = Math.max(Number(req.query.limit) || 5, 1);
@@ -234,9 +332,6 @@ export const getBestOffers = async (req, res) => {
     const userId = req.user?.userId || null;
     const sessionId = userId ? null : req.sessionId;
 
-    /* -----------------------------
-       Build base aggregation
-    ------------------------------*/
     const basePipeline = [
       {
         $addFields: {
@@ -244,7 +339,6 @@ export const getBestOffers = async (req, res) => {
             $cond: [
               { $eq: ["$pricing.discountType", "percentage"] },
               "$pricing.discount",
-
               {
                 $cond: [
                   { $eq: ["$pricing.discountType", "flat"] },
@@ -256,8 +350,6 @@ export const getBestOffers = async (req, res) => {
                       100,
                     ],
                   },
-
-                  // 🔥 FREE PROMO BOOST
                   {
                     $cond: [
                       {
@@ -266,7 +358,7 @@ export const getBestOffers = async (req, res) => {
                           { $gt: ["$pricing.freeOffer.freeItemQuantity", 0] },
                         ],
                       },
-                      999, // always rank top
+                      999,
                       0,
                     ],
                   },
@@ -278,35 +370,35 @@ export const getBestOffers = async (req, res) => {
       },
     ];
 
-    /* -----------------------------
-       Try discounted products first
-    ------------------------------*/
     let items = await Inventory.aggregate([
-      { $match: { "pricing.discount": { $gt: 0 } } },
+      {
+        $match: {
+          $or: [
+            { "pricing.discount": { $gt: 0 } },
+            {
+              $and: [
+                { "pricing.discountType": "free" },
+                { "pricing.freeOffer.freeItemQuantity": { $gt: 0 } },
+              ],
+            },
+          ],
+        },
+      },
       ...basePipeline,
       { $limit: limit },
     ]);
 
     let mode = "discounted";
-
-    /* -----------------------------
-       Fallback: no discounts at all
-    ------------------------------*/
     if (items.length === 0) {
       items = await Inventory.aggregate([...basePipeline, { $limit: limit }]);
       mode = "all";
     }
 
-    /* -----------------------------
-       Likes
-    ------------------------------*/
     let likedProductIds = new Set();
-
     if (userId || sessionId) {
       const likes = await Like.find(userId ? { userId } : { sessionId }).select(
         "productId",
       );
-
       likedProductIds = new Set(likes.map((l) => l.productId));
     }
 
@@ -316,7 +408,7 @@ export const getBestOffers = async (req, res) => {
     }));
 
     res.status(200).json({
-      mode, // "discounted" | "all"
+      mode,
       limit,
       count: response.length,
       items: response,
@@ -338,23 +430,31 @@ export const addReview = async (req, res) => {
     if (!rating || rating < 1 || rating > 5)
       return res.status(400).json({ error: "Rating must be between 1 and 5" });
 
-    const product = await Inventory.findOne({ productId: Number(productId) });
+    if (!comment || comment.trim() === "")
+      return res.status(400).json({ error: "Comment cannot be empty" });
+
+    const product = await Inventory.findOne({
+      productId: Number(productId),
+    });
+
+    if (!product) return res.status(404).json({ error: "Product not found" });
 
     const existingReview = product.reviews.find(
       (r) => r.userId.toString() === userId,
     );
-    if (existingReview) {
+
+    if (existingReview)
       return res
         .status(400)
         .json({ error: "You have already reviewed this product" });
-    }
 
-    if (!product) return res.status(404).json({ error: "Product not found" });
+    product.reviews.push({
+      userId,
+      rating,
+      comment,
+      createdAt: new Date(),
+    });
 
-    // Add review
-    product.reviews.push({ userId, rating, comment });
-
-    // Update totalReviews & averageRating
     product.totalReviews = product.reviews.length;
     product.averageRating =
       product.reviews.reduce((sum, r) => sum + r.rating, 0) /
@@ -362,9 +462,10 @@ export const addReview = async (req, res) => {
 
     await product.save();
 
-    res
-      .status(201)
-      .json({ message: "Review added successfully", reviews: product.reviews });
+    res.status(201).json({
+      message: "Review added successfully",
+      reviews: product.reviews,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to add review" });
@@ -377,16 +478,34 @@ export const getReviews = async (req, res) => {
 
     const product = await Inventory.findOne({
       productId: Number(productId),
-    }).populate({
-      path: "reviews.userId",
-      select: "firstname lastname email", // optional: show user info
     });
 
     if (!product) return res.status(404).json({ error: "Product not found" });
 
+    const reviewerIds = [
+      ...new Set(
+        product.reviews
+          .map((r) => r.userId)
+          .filter((id) => typeof id === "string" && id.trim() !== ""),
+      ),
+    ];
+
+    const reviewers = await User.find({ userId: { $in: reviewerIds } }).select(
+      "userId firstname lastname email",
+    );
+
+    const reviewerMap = new Map(reviewers.map((u) => [u.userId, u]));
+
     res.json({
       reviews: product.reviews.map((r) => ({
         userId: r.userId,
+        reviewer: reviewerMap.get(r.userId)
+          ? {
+              firstname: reviewerMap.get(r.userId).firstname,
+              lastname: reviewerMap.get(r.userId).lastname,
+              email: reviewerMap.get(r.userId).email,
+            }
+          : null,
         rating: r.rating,
         comment: r.comment,
         createdAt: r.createdAt,
