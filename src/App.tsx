@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard.tsx";
 import Inventory from "./pages/Inventory.tsx";
 import ScrollToTop from "./components/ScrollToTop.tsx";
@@ -77,6 +77,7 @@ function App() {
         <Route path="/users" element={<UserManagement />} />
         <Route path="/inventory/add-product" element={<AddProduct />}></Route>
         <Route path="learn" element={<LearnManagement />}></Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
