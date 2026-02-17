@@ -20,7 +20,11 @@ export default function LoginPopup({ onClose }: { onClose: () => void }) {
       dispatch(
         setAdminCredentials({
           token: response.token,
-          admin: response.admin,
+          admin: {
+            adminId: response.admin.adminId,
+            email: response.admin.email,
+            role: response.admin.role ?? "admin",
+          },
         })
       );
 

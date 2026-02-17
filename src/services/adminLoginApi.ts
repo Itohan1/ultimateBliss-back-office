@@ -8,9 +8,12 @@ interface AdminLoginRequest {
 interface AdminLoginResponse {
   token: string;
   admin: {
-    id: string;
+    adminId: string;
     email: string;
-    role: string;
+    role?: string;
+    firstname?: string;
+    lastname?: string;
+    isSuperAdmin?: boolean;
   };
 }
 
