@@ -195,45 +195,77 @@ export default function LearnManagement() {
             {isLoading ? (
               <p>Loading...</p>
             ) : (
-              <table className="min-w-full">
-                <thead className="bg-pink-100">
-                  <tr>
-                    <th className="px-4 py-2">Title</th>
-                    <th className="px-4 py-2">Created</th>
-                    <th className="px-4 py-2">Actions</th>
-                  </tr>
-                </thead>
+              <>
+                <div className="hidden md:block">
+                  <table className="min-w-full">
+                    <thead className="bg-pink-100">
+                      <tr>
+                        <th className="px-4 py-2">Title</th>
+                        <th className="px-4 py-2">Created</th>
+                        <th className="px-4 py-2">Actions</th>
+                      </tr>
+                    </thead>
 
-                <tbody>
+                    <tbody>
+                      {displayed?.map((item) => (
+                        <tr key={item._id} className="border-b hover:bg-gray-50">
+                          <td className="px-4 py-2">{item.title}</td>
+                          <td className="px-4 py-2">
+                            {new Date(item.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="group relative inline-block">
+                              <MoreVertical />
+                              <div className="absolute right-0 hidden group-hover:block bg-white shadow rounded-lg w-36">
+                                <button
+                                  onClick={() => navigate(`/learn/${item._id}`)}
+                                  className="flex items-center gap-2 px-4 py-2 w-full"
+                                >
+                                  <Eye size={16} /> View
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteClick(item._id)}
+                                  className="flex items-center gap-2 px-4 py-2 w-full text-red-600"
+                                >
+                                  <Trash2 size={16} /> Delete
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="space-y-3 md:hidden">
                   {displayed?.map((item) => (
-                    <tr key={item._id} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-2">{item.title}</td>
-                      <td className="px-4 py-2">
+                    <div
+                      key={item._id}
+                      className="rounded-xl border border-gray-200 p-4"
+                    >
+                      <p className="font-semibold">{item.title}</p>
+                      <p className="text-sm text-gray-600">
                         {new Date(item.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="group relative inline-block">
-                          <MoreVertical />
-                          <div className="absolute right-0 hidden group-hover:block bg-white shadow rounded-lg w-36">
-                            <button
-                              onClick={() => navigate(`/learn/${item._id}`)}
-                              className="flex items-center gap-2 px-4 py-2 w-full"
-                            >
-                              <Eye size={16} /> View
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClick(item._id)}
-                              className="flex items-center gap-2 px-4 py-2 w-full text-red-600"
-                            >
-                              <Trash2 size={16} /> Delete
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => navigate(`/learn/${item._id}`)}
+                          className="rounded-lg bg-pink-600 px-3 py-2 text-sm font-medium text-white"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(item._id)}
+                          className="rounded-lg border border-red-500 px-3 py-2 text-sm font-medium text-red-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </>
             )}
           </div>
           {totalPages > 1 && (

@@ -17,7 +17,7 @@ export interface ImageAd {
 export const adApi = createApi({
   reducerPath: "adApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5000/api/v1/ads",
+    baseUrl: `${import.meta.env.VITE_API_URL}/api/v1/ads`,
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootState).adminAuth.token;
       if (token) headers.set("Authorization", `Bearer ${token}`);

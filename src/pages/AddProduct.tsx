@@ -15,6 +15,7 @@ import Header from "../components/Header";
 import { Breadcrumb } from "../components/Breadcrumbs";
 import { useAddProductMutation } from "../services/inventoryApi";
 import ProductCategorySelector from "../components/productCategorySelector";
+import { compressImageFile } from "../utils/imageUpload";
 //import type { Category, Subcategory } from "../types/category.ts";
 export default function AddProduct() {
   const navigate = useNavigate();
@@ -23,13 +24,15 @@ export default function AddProduct() {
   const [addProduct, { isLoading }] = useAddProductMutation();
   const [showLogin, setShowLogin] = useState(false);
 
-  const [image, setImage] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     productName: "",
     sku: "",
     category: "",
     subcategory: "",
+    description: "",
     brandName: "",
     manufacturer: "",
     unitOfMeasure: "",
@@ -73,17 +76,40 @@ export default function AddProduct() {
     [],
   );
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => setImage(reader.result as string);
-    reader.readAsDataURL(file);
+    const maxSizeBytes = 25 * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      toast.error("Image must be 25MB or smaller");
+      return;
+    }
+
+    let uploadFile = file;
+    try {
+      uploadFile = await compressImageFile(file, {
+        maxBytes: 2 * 1024 * 1024,
+        maxDimension: 1600,
+      });
+      if (uploadFile.size < file.size) {
+        toast.success("Image optimized for faster upload");
+      }
+    } catch {
+      uploadFile = file;
+    }
+
+    setImageFile(uploadFile);
+    setImagePreview(URL.createObjectURL(uploadFile));
   };
 
   const handleSubmit = async () => {
     try {
+      if (!imageFile) {
+        toast.error("Product image is required");
+        return;
+      }
+
       const stockNumber = Number(formData.stockNumber);
       const lowStockThreshold = Number(formData.lowStockThreshold);
 
@@ -126,12 +152,23 @@ export default function AddProduct() {
         return;
       }
 
-      if (formData.discountType === "promotion" && discount > 100) {
+      if (
+        (formData.discountType === "percentage" ||
+          formData.discountType === "flat") &&
+        discount <= 0
+      ) {
+        toast.error(
+          "Discount must be greater than 0 for percentage or flat type",
+        );
+        return;
+      }
+
+      if (formData.discountType === "percentage" && discount > 100) {
         toast.error("Percentage discount cannot exceed 100%");
         return;
       }
 
-      if (formData.discountType === "free" && discount > sellingPrice) {
+      if (formData.discountType === "flat" && discount > sellingPrice) {
         toast.error("Flat discount cannot exceed selling price");
         return;
       }
@@ -142,6 +179,7 @@ export default function AddProduct() {
         sku: formData.sku,
         category: formData.category,
         subcategory: formData.subcategory,
+        description: formData.description,
         brandName: formData.brandName,
         manufacturer: formData.manufacturer,
         unitOfMeasure: formData.unitOfMeasure,
@@ -166,13 +204,15 @@ export default function AddProduct() {
                 }
               : undefined,
         },
-
-        // NEW
-
-        productImage: image,
       };
 
-      await addProduct(payload).unwrap();
+      const form = new FormData();
+      form.append("payload", JSON.stringify(payload));
+      if (imageFile) {
+        form.append("image", imageFile);
+      }
+
+      await addProduct(form).unwrap();
       toast.success("Product created successfully");
       navigate("/inventory");
     } catch (err: unknown) {
@@ -181,7 +221,7 @@ export default function AddProduct() {
       if ("status" in error && error.status === 401) {
         setShowLogin(true);
       } else {
-        toast.error(getErrorMessage(err, "Failed to update transaction"));
+        toast.error(getErrorMessage(err, "Failed to add product to inventory"));
       }
     }
   };
@@ -191,6 +231,14 @@ export default function AddProduct() {
       setFormData((prev) => ({ ...prev, discount: "" }));
     }
   }, [formData.discountType]);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
 
   /* ---------------- UI ---------------- */
 
@@ -226,7 +274,7 @@ export default function AddProduct() {
           setIsSidebarOpen={setIsSidebarOpen}
         />
 
-        <section className="mt-16 md:ml-64 flex-1 p-6">
+        <section className="mt-16 md:ml-64 flex-1 p-2 sm:p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-semibold text-pink-700">
@@ -287,6 +335,14 @@ export default function AddProduct() {
                 <ProductCategorySelector
                   formData={formData}
                   handleChange={handleChange}
+                />
+                <Input
+                  label="Description"
+                  name="description"
+                  placeholder="Product description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  className="input mt-4"
                 />
               </div>
 
@@ -466,8 +522,12 @@ export default function AddProduct() {
               Product Image
             </h2>
             <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center">
-              {image ? (
-                <img src={image} className="w-40 h-40 object-cover mb-4" />
+              {imagePreview ? (
+                <img
+                  src={imagePreview}
+                  className="w-40 h-40 object-cover mb-4"
+                  alt="Product preview"
+                />
               ) : (
                 <p className="text-gray-500 mb-4">Upload product image</p>
               )}
@@ -483,9 +543,12 @@ export default function AddProduct() {
                 />
               </label>
 
-              {image && (
+              {imagePreview && (
                 <button
-                  onClick={() => setImage(null)}
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview(null);
+                  }}
                   className="mt-3 text-sm text-gray-600"
                 >
                   Remove image

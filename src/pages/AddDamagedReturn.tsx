@@ -8,11 +8,14 @@ import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { toast } from "react-hot-toast";
 import LoginPopup from "../components/LoginPopup.tsx";
 import { useGetCategoriesQuery } from "../services/categoryApi";
-import { useGetInventoryItemsQuery } from "../services/inventoryApi";
+import { inventoryApi, useGetInventoryItemsQuery } from "../services/inventoryApi";
+import { useDispatch } from "react-redux";
+import type { AppDispatch } from "../store";
 
 export default function AddDamagedReturn() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
 
   const [createReturnItem, { isLoading }] = useCreateReturnItemMutation();
   const [showLogin, setShowLogin] = useState(false);
@@ -122,6 +125,7 @@ export default function AddDamagedReturn() {
       if (image) data.append("image", image);
 
       await createReturnItem(data).unwrap();
+      dispatch(inventoryApi.util.invalidateTags(["Inventory"]));
       toast.success("Damaged/Return item has been recorded");
       navigate("/inventory/returns");
     } catch (err: unknown) {
@@ -253,7 +257,11 @@ export default function AddDamagedReturn() {
                       ...prev,
                       type: value,
                       adjustInventory:
-                        value === "damaged" ? true : prev.adjustInventory,
+                        value === "damaged"
+                          ? true
+                          : value === "supplier_return"
+                            ? prev.adjustInventory
+                            : false,
                     }));
                   }}
                   className="mt-1 w-full border rounded-lg px-3 py-2"
@@ -307,23 +315,26 @@ export default function AddDamagedReturn() {
               </div>
 
               <div className="md:col-span-2 flex flex-col items-center gap-3">
-                <div className="md:col-span-2 flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    name="adjustInventory"
-                    checked={form.adjustInventory}
-                    disabled={form.type === "damaged"}
-                    onChange={handleChange}
-                    className="h-4 w-4"
-                  />
-                  <label className="text-sm font-medium">
-                    Adjust inventory stock for this return
-                  </label>
-                </div>
-                <p className="text-sm text-red-500">
-                  (Damaged Items quantity will automatically be subtracted from
-                  iventory)
-                </p>
+                {form.type === "supplier_return" && (
+                  <div className="md:col-span-2 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      name="adjustInventory"
+                      checked={form.adjustInventory}
+                      onChange={handleChange}
+                      className="h-4 w-4"
+                    />
+                    <label className="text-sm font-medium">
+                      Adjust inventory stock for this return
+                    </label>
+                  </div>
+                )}
+                {form.type === "damaged" && (
+                  <p className="text-sm text-red-500">
+                    (Damaged Items quantity will automatically be subtracted from
+                    iventory)
+                  </p>
+                )}
               </div>
 
               {/* Image */}

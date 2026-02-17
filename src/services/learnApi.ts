@@ -13,7 +13,7 @@ export interface Learn {
 export const learnApi = createApi({
   reducerPath: "learnApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5000/api/v1",
+    baseUrl: `${import.meta.env.VITE_API_URL}/api/v1`,
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootState).adminAuth.token;
       if (token) headers.set("Authorization", `Bearer ${token}`);

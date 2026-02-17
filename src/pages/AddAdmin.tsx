@@ -3,6 +3,7 @@ import Aside from "../components/Aside";
 import Header from "../components/Header";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { Breadcrumb } from "../components/Breadcrumbs";
 import {
   useSendOtpMutation,
   useVerifyOtpMutation,
@@ -28,13 +29,26 @@ export default function AddAdmin() {
   const [createAdmin] = useCreateAdminMutation();
 
   async function handleSendOtp() {
-    await sendOtp({ email: form.email }).unwrap();
+    await sendOtp({
+      channel: "email",
+      email: form.email,
+    }).unwrap();
     setStep("otp");
   }
 
   async function handleVerifyAndCreate() {
-    await verifyOtp({ email: form.email, otp: form.otp }).unwrap();
-    await createAdmin(form).unwrap();
+    await verifyOtp({
+      channel: "email",
+      email: form.email,
+      otp: form.otp,
+    }).unwrap();
+    await createAdmin({
+      firstname: form.firstname,
+      lastname: form.lastname,
+      email: form.email,
+      password: form.password,
+      isSuperAdmin: form.isSuperAdmin,
+    }).unwrap();
     toast.success("Admin created successfully");
     navigate("/admin-accounts");
   }
@@ -56,6 +70,12 @@ export default function AddAdmin() {
           <h1 className="text-2xl font-semibold text-pink-700 mb-6">
             Add New Admin
           </h1>
+          <Breadcrumb
+            items={[
+              { label: "Admin Accounts", onClick: () => navigate("/admin-accounts") },
+              { label: "Add Admin" },
+            ]}
+          />
 
           <div className="bg-white p-6 rounded-2xl shadow space-y-4">
             {step === "form" && (
@@ -79,6 +99,9 @@ export default function AddAdmin() {
                   className="border p-3 rounded-lg w-full"
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
+                <div className="rounded-lg border border-pink-200 bg-pink-50 px-3 py-2 text-sm text-pink-700">
+                  Verification is via email OTP only.
+                </div>
                 <input
                   type="password"
                   placeholder="Password"

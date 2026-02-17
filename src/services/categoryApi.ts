@@ -35,7 +35,7 @@ interface DeleteSubcategoryRequest {
 export const categoryApi = createApi({
   reducerPath: "categoryApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5000/api/v1",
+    baseUrl: `${import.meta.env.VITE_API_URL}/api/v1`,
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootState).adminAuth.token;
       if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -45,8 +45,13 @@ export const categoryApi = createApi({
   tagTypes: ["Category"],
   endpoints: (builder) => ({
     /* ---------------- Categories ---------------- */
-    getCategories: builder.query<Category[], void>({
-      query: () => "/categories",
+    getCategories: builder.query<Category[], { includeInactive?: boolean } | void>({
+      query: (params) => {
+        if (params?.includeInactive) {
+          return "/categories?includeInactive=true";
+        }
+        return "/categories";
+      },
       providesTags: ["Category"],
     }),
     getCategory: builder.query<Category, string>({

@@ -5,6 +5,7 @@ export interface CreateInventoryItem {
   sku: string;
   category: string;
   subcategory?: string;
+  description?: string;
   brandName?: string;
   manufacturer?: string;
   unitOfMeasure?: string;

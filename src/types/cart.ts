@@ -1,13 +1,20 @@
-export type DiscountType = "free" | "promotion" | "none";
+export type DiscountType = "percentage" | "flat" | "free" | "none";
 
 export interface CartItem {
   orderItemId: number;
   productId: number;
   name: string;
   image: string;
-  price: number;
-  discount: number;
+  discount?: number;
+
+  sellingPrice: number;
+  discountedPrice: number;
+
   discountType: DiscountType;
+  freeItemDescription?: string;
+  minPurchaseQuantity?: number;
+  freeQuantity?: number;
+
   quantity: number;
   totalPrice: number;
 }
@@ -24,17 +31,20 @@ export interface Cart {
   updatedAt: string;
 }
 
-/* REQUEST PAYLOADS */
-
 export interface AddToCartPayload {
   userId?: string;
   product: {
     productId: number;
     name: string;
     image: string;
-    price: number;
+    sellingPrice: number;
+    discountedPrice: number;
     discount?: number;
     discountType?: DiscountType;
+    minPurchaseQuantity?: number;
+    freeQuantity?: number;
+    freeItemDescription?: string;
+    isDiscounted?: boolean;
   };
 }
 

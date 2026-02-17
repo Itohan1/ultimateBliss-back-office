@@ -8,12 +8,10 @@ import type {
   DeleteInventoryResponse,
 } from "../types/inventory";
 
-import type { CreateInventoryItem } from "../types/CreateInventoryItem";
-
 export const inventoryApi = createApi({
   reducerPath: "inventoryApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5000/api/v1",
+    baseUrl: `${import.meta.env.VITE_API_URL}/api/v1`,
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootState).adminAuth.token;
       if (token) {
@@ -25,7 +23,7 @@ export const inventoryApi = createApi({
   tagTypes: ["Inventory"],
   endpoints: (builder) => ({
     /* ---------- CREATE ---------- */
-    addProduct: builder.mutation<CreateInventoryResponse, CreateInventoryItem>({
+    addProduct: builder.mutation<CreateInventoryResponse, FormData>({
       query: (body) => ({
         url: "/inventory",
         method: "POST",
@@ -51,7 +49,7 @@ export const inventoryApi = createApi({
     /* ---------- UPDATE ---------- */
     updateInventoryItem: builder.mutation<
       UpdateInventoryResponse,
-      { productId: string; data: UpdateInventoryPayload }
+      { productId: string; data: UpdateInventoryPayload | FormData }
     >({
       query: ({ productId, data }) => ({
         url: `/inventory/${productId}`,

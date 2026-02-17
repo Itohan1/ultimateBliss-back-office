@@ -9,7 +9,7 @@ import type { RootState } from "../store";
 export const cartApi = createApi({
   reducerPath: "cartApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1",
+    baseUrl: `${import.meta.env.VITE_API_URL}/api/v1`,
     prepareHeaders: (headers, { getState }) => {
       // Add auth token if exists
       const state = getState() as RootState;

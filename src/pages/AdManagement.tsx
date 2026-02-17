@@ -11,17 +11,23 @@ import {
   useCreateImageAdMutation,
   useDeleteImageAdMutation,
 } from "../services/adApi";
+import ConfirmModal from "../components/ConfirmModal.tsx";
 
 export default function AdvertisementManagement() {
   const [newText, setNewText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    type: "text" | "image";
+  } | null>(null);
 
   // ---------------- TEXT ADS ----------------
   const { data: textAds } = useGetTextAdsQuery();
   const [createTextAd] = useCreateTextAdMutation();
-  const [deleteTextAd] = useDeleteTextAdMutation();
+  const [deleteTextAd, { isLoading: isDeletingText }] =
+    useDeleteTextAdMutation();
 
   const handleAddTextAd = async () => {
     if (!newText.trim()) return;
@@ -46,7 +52,8 @@ export default function AdvertisementManagement() {
   // ---------------- IMAGE ADS ----------------
   const { data: imageAds } = useGetImageAdsQuery();
   const [createImageAd] = useCreateImageAdMutation();
-  const [deleteImageAd] = useDeleteImageAdMutation();
+  const [deleteImageAd, { isLoading: isDeletingImage }] =
+    useDeleteImageAdMutation();
 
   const handleAddImageAd = async () => {
     if (!imageFile) return;
@@ -69,6 +76,16 @@ export default function AdvertisementManagement() {
       const error = err as FetchBaseQueryError;
       if ("status" in error && error.status === 401) setShowLogin(true);
     }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    if (pendingDelete.type === "text") {
+      await handleDeleteTextAd(pendingDelete.id);
+    } else {
+      await handleDeleteImageAd(pendingDelete.id);
+    }
+    setPendingDelete(null);
   };
 
   return (
@@ -118,7 +135,7 @@ export default function AdvertisementManagement() {
                 >
                   <span className="flex-1">{ad.text}</span>
                   <button
-                    onClick={() => handleDeleteTextAd(ad._id)}
+                    onClick={() => setPendingDelete({ id: ad._id, type: "text" })}
                     className="ml-4 px-3 py-1 bg-red-500 text-white rounded-lg"
                   >
                     Delete
@@ -153,12 +170,12 @@ export default function AdvertisementManagement() {
               {imageAds?.map((ad) => (
                 <div key={ad._id} className="relative">
                   <img
-                    src={`http://localhost:5000${ad.url}`}
+                    src={ad.url}
                     className="w-full h-48 sm:h-40 object-cover rounded-xl shadow"
                     alt="Advertisement"
                   />
                   <button
-                    onClick={() => handleDeleteImageAd(ad._id)}
+                    onClick={() => setPendingDelete({ id: ad._id, type: "image" })}
                     className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-lg text-sm"
                   >
                     Delete
@@ -169,6 +186,15 @@ export default function AdvertisementManagement() {
           </div>
         </section>
       </main>
+      <ConfirmModal
+        isOpen={pendingDelete !== null}
+        title="Delete Advertisement"
+        message="Are you sure you want to delete this advertisement? This action cannot be undone."
+        confirmText="Delete"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeletingText || isDeletingImage}
+      />
       {showLogin && <LoginPopup onClose={() => setShowLogin(false)} />}
     </div>
   );

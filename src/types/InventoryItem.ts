@@ -1,8 +1,12 @@
-export type DiscountType = "free" | "promotion" | "none";
+export type DiscountType =
+  | "percentage"
+  | "flat"
+  | "free"
+  | "none"
+  | "promotion";
 
 export interface InventoryItem {
-  productId: number; // ✅ REQUIRED (CRITICAL)
-
+  productId: number;
   productName: string;
   sku: string;
   category: string;
@@ -20,9 +24,17 @@ export interface InventoryItem {
   pricing: {
     costPrice: number;
     sellingPrice: number;
+    discount?: number;
+    discountType?: DiscountType;
+    discountedPrice?: number;
+    isDiscounted?: boolean;
+    freeOffer?: {
+      minQuantityOfPurchase?: number;
+      freeItemQuantity?: number;
+      freeItemDescription?: string;
+    };
   };
 
-  // 🔥 discounts belong here, NOT in pricing
   discount?: number;
   discountType?: DiscountType;
 

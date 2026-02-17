@@ -54,104 +54,145 @@ export default function AdminOrders() {
           setIsSidebarOpen={setIsSidebarOpen}
         />
 
-        <section className="mt-16 md:ml-64 flex-1 p-6">
+        <section className="mt-16 md:ml-64 flex-1 p-2 sm:p-6">
           {isLoading ? (
             <p className="p-6">Loading orders...</p>
           ) : (
             <>
               {/* Breadcrumb */}
-              <p className="text-sm text-gray-500 mb-2">Dashboard / Orders</p>
               <h1 className="text-2xl font-semibold text-pink-700 mb-6">
                 Recent Orders
               </h1>
               {/* Orders Table */}
               <div className="bg-white overflow-x-auto p-4 rounded-2xl shadow">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Buyer
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Products
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Transaction
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Order Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Date
-                      </th>
-                      <th />
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-gray-200">
-                    {paginatedOrders.map((order, idx) => (
-                      <tr key={order._id}>
-                        <td className="px-6 py-4">
-                          <p className="font-medium">
-                            {order.billing.firstname} {order.billing.lastname}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            #{order.orderId}
-                          </p>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-gray-700">
-                            {order.items
-                              .slice(0, 2)
-                              .map((i) => i.name)
-                              .join(", ")}
-                            {order.items.length > 2 && "…"}
-                          </p>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <TransactionBadge status={order.transactionStatus} />
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <OrderStatusBadge status={order.orderStatus} />
-                        </td>
-
-                        <td className="px-6 py-4 text-sm">
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </td>
-
-                        <td className="px-6 py-4 text-right relative">
-                          <div
-                            className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
-                            onClick={() =>
-                              setOpenDropdown(openDropdown === idx ? null : idx)
-                            }
-                          >
-                            <EllipsisVertical />
-                          </div>
-
-                          {openDropdown === idx && (
-                            <div
-                              ref={dropdownRef}
-                              className="absolute right-10 top-8 w-44 bg-white border rounded-xl shadow-lg z-10"
-                            >
-                              <button
-                                onClick={() =>
-                                  navigate(`/orders/${order.orderId}`)
-                                }
-                                className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
-                              >
-                                <Eye size={16} /> View Order Details
-                              </button>
-                            </div>
-                          )}
-                        </td>
+                <div className="hidden md:block">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Buyer
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Products
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Transaction
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Order Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Date
+                        </th>
+                        <th />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-200">
+                      {paginatedOrders.map((order, idx) => (
+                        <tr key={order._id}>
+                          <td className="px-6 py-4">
+                            <p className="font-medium">
+                              {order.billing.firstname} {order.billing.lastname}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              #{order.orderId}
+                            </p>
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-700">
+                              {order.items
+                                .slice(0, 2)
+                                .map((i) => i.name)
+                                .join(", ")}
+                              {order.items.length > 2 && "…"}
+                            </p>
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <TransactionBadge
+                              status={order.transactionStatus}
+                            />
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <OrderStatusBadge status={order.orderStatus} />
+                          </td>
+
+                          <td className="px-6 py-4 text-sm">
+                            {new Date(order.createdAt).toLocaleDateString()}
+                          </td>
+
+                          <td className="px-6 py-4 text-right relative">
+                            <div
+                              className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
+                              onClick={() =>
+                                setOpenDropdown(
+                                  openDropdown === idx ? null : idx,
+                                )
+                              }
+                            >
+                              <EllipsisVertical />
+                            </div>
+
+                            {openDropdown === idx && (
+                              <div
+                                ref={dropdownRef}
+                                className="absolute right-10 top-8 w-44 bg-white border rounded-xl shadow-lg z-10"
+                              >
+                                <button
+                                  onClick={() =>
+                                    navigate(`/orders/${order.orderId}`)
+                                  }
+                                  className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
+                                >
+                                  <Eye size={16} /> View Order Details
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="space-y-3 md:hidden">
+                  {paginatedOrders.map((order) => (
+                    <div
+                      key={order._id}
+                      className="rounded-xl border border-gray-200 p-4"
+                    >
+                      <p className="font-semibold">
+                        {order.billing.firstname} {order.billing.lastname}
+                      </p>
+                      <p className="text-sm text-gray-600">#{order.orderId}</p>
+                      <p className="mt-2 text-sm text-gray-600">
+                        {order.items
+                          .slice(0, 2)
+                          .map((i) => i.name)
+                          .join(", ")}
+                        {order.items.length > 2 && "â€¦"}
+                      </p>
+                      <div className="mt-2">
+                        <TransactionBadge status={order.transactionStatus} />
+                      </div>
+                      <div className="mt-2">
+                        <OrderStatusBadge status={order.orderStatus} />
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600">
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </p>
+                      <button
+                        onClick={() => navigate(`/orders/${order.orderId}`)}
+                        className="mt-3 rounded-lg bg-pink-600 px-3 py-2 text-sm font-medium text-white"
+                      >
+                        View Order Details
+                      </button>
+                    </div>
+                  ))}
+                </div>
 
                 {/* Pagination */}
                 <div className="flex justify-end gap-2 mt-4">

@@ -6,6 +6,8 @@ import LoginPopup from "../components/LoginPopup.tsx";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import toast from "react-hot-toast";
 import { getErrorMessage } from "../getErrorMessage.ts";
+import { Breadcrumb } from "../components/Breadcrumbs";
+import { useNavigate } from "react-router-dom";
 import {
   useGetBookingByIdQuery,
   useUpdateBookingStatusMutation,
@@ -20,6 +22,7 @@ type TransactionStatus = AdminBooking["transactionStatus"];
 
 export default function BookingDetails() {
   const { bookingId } = useParams<{ bookingId: string }>();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const { data: booking, isLoading } = useGetBookingByIdQuery(bookingId!);
@@ -107,6 +110,12 @@ export default function BookingDetails() {
           <h1 className="text-2xl font-semibold text-pink-700">
             Booking Details
           </h1>
+          <Breadcrumb
+            items={[
+              { label: "Bookings", onClick: () => navigate("/bookings") },
+              { label: "Booking Details" },
+            ]}
+          />
 
           {/* User Info */}
           <div className="bg-white rounded-2xl shadow p-5">

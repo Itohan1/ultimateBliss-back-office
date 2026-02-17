@@ -5,7 +5,7 @@ import { useGetReturnItemsQuery } from "../services/returnApi";
 import { useNavigate } from "react-router-dom";
 
 type FilterType = "all" | "customer_return" | "supplier_return" | "damaged";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function DamagedReturned() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -84,7 +84,7 @@ export default function DamagedReturned() {
                 placeholder="Search by product, contact or type..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="border px-3 py-2 rounded-lg w-1/3"
+                className="border px-3 py-2 rounded-lg w-full md:w-1/3"
               />
 
               <select
@@ -99,7 +99,8 @@ export default function DamagedReturned() {
               </select>
             </div>
 
-            <table className="min-w-full divide-y divide-gray-200">
+            <div className="hidden md:block">
+              <table className="min-w-full divide-y divide-gray-200">
               <thead>
                 <tr className="bg-gray-50">
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase">
@@ -137,7 +138,11 @@ export default function DamagedReturned() {
                     <td className="px-6 py-4">
                       {item.image ? (
                         <img
-                          src={`${API_URL}${item.image}`}
+                          src={
+                            item.image.startsWith("http")
+                              ? item.image
+                              : `${API_URL}${item.image}`
+                          }
                           alt={item.product.productName}
                           className="w-12 h-12 object-cover rounded-lg border"
                         />
@@ -164,7 +169,46 @@ export default function DamagedReturned() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
+
+            <div className="space-y-3 md:hidden">
+              {paginatedReturns.map((item) => (
+                <div
+                  key={item._id}
+                  onClick={() => navigate(`/inventory/returns/${item._id}`)}
+                  className="cursor-pointer rounded-xl border border-gray-200 p-4"
+                >
+                  <p className="font-semibold">{item.product.productName}</p>
+                  <p className="text-sm text-gray-600 capitalize">
+                    {item.type.replace("_", " ")}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Qty: {item.product.quantity}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Contact: {item.contact.name} ({item.contact.phone})
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Inventory Updated: {item.inventoryAdjusted ? "Yes" : "No"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Date: {new Date(item.createdAt).toLocaleDateString()}
+                  </p>
+                  {item.image ? (
+                    <img
+                      src={
+                        item.image.startsWith("http")
+                          ? item.image
+                          : `${API_URL}${item.image}`
+                      }
+                      alt={item.product.productName}
+                      className="mt-2 h-16 w-16 rounded-lg border object-cover"
+                    />
+                  ) : null}
+                </div>
+              ))}
+            </div>
             <div className="flex justify-center gap-2 mt-6">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                 <button

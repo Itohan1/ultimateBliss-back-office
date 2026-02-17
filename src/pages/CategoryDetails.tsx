@@ -5,6 +5,8 @@ import Aside from "../components/Aside";
 import Header from "../components/Header";
 import { Breadcrumb } from "../components/Breadcrumbs";
 import Input from "../components/Input";
+import ConfirmModal from "../components/ConfirmModal.tsx";
+import { toast } from "react-hot-toast";
 import {
   useGetCategoryQuery,
   useUpdateCategoryMutation,
@@ -14,11 +16,7 @@ import {
   useDeleteSubcategoryMutation,
 } from "../services/categoryApi";
 import type { Subcategory } from "../types/category";
-import {
-  useGetConsultationTimeSlotsQuery,
-  useUpdateConsultationTimeSlotMutation,
-  useDeleteConsultationTimeSlotMutation,
-} from "../services/consultationTimeSlotApi";
+import { getErrorMessage } from "../getErrorMessage";
 
 export default function CategoryDetails() {
   const navigate = useNavigate();
@@ -26,7 +24,13 @@ export default function CategoryDetails() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // API hooks
-  const { data: category, isLoading, refetch } = useGetCategoryQuery(id!);
+  const {
+    data: category,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useGetCategoryQuery(id!);
   const [updateCategory] = useUpdateCategoryMutation();
   const [deleteCategory] = useDeleteCategoryMutation();
   const [addSubcategory] = useAddSubcategoryMutation();
@@ -40,6 +44,12 @@ export default function CategoryDetails() {
     isActive: true,
   });
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<
+    | { type: "category" }
+    | { type: "subcategory"; index: number; subId?: number }
+    | null
+  >(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (category) {
@@ -96,47 +106,74 @@ export default function CategoryDetails() {
   };
 
   const handleSaveCategory = async () => {
-    await updateCategory({ id: id!, data: formData }).unwrap();
-    refetch();
+    try {
+      await updateCategory({ id: id!, data: formData }).unwrap();
+      toast.success("Category updated successfully");
+      refetch();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update category"));
+    }
   };
 
   const handleSaveSubcategory = async (index: number, subId?: number) => {
     const sub = subcategories[index];
-    if (subId !== undefined) {
-      await updateSubcategory({
-        categoryId: id!,
-        subcategoryId: subId,
-        data: sub,
-      }).unwrap();
-    } else {
-      await addSubcategory({ categoryId: id!, data: sub }).unwrap();
-    }
-    refetch();
-  };
-
-  const handleRemoveSubcategory = async (index: number, subId?: number) => {
     try {
       if (subId !== undefined) {
-        await deleteSubcategory({
+        await updateSubcategory({
           categoryId: id!,
           subcategoryId: subId,
+          data: sub,
         }).unwrap();
+        toast.success("Subcategory updated successfully");
+      } else {
+        await addSubcategory({ categoryId: id!, data: sub }).unwrap();
+        toast.success("Subcategory added successfully");
       }
-      setSubcategories((prev) => prev.filter((_, i) => i !== index));
+      refetch();
     } catch (err) {
-      console.error("Failed to delete subcategory:", err);
+      toast.error(getErrorMessage(err, "Failed to save subcategory"));
     }
   };
 
-  const handleDeleteCategory = async () => {
-    if (confirm("Are you sure you want to delete this category?")) {
-      await deleteCategory(id!).unwrap();
-      navigate("/categories");
+  const handleRemoveSubcategory = (index: number, subId?: number) => {
+    setPendingDelete({ type: "subcategory", index, subId });
+  };
+
+  const handleDeleteCategory = () => {
+    setPendingDelete({ type: "category" });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+      if (pendingDelete.type === "category") {
+        await deleteCategory(id!).unwrap();
+        navigate("/categories");
+        return;
+      }
+
+      if (pendingDelete.subId !== undefined) {
+        await deleteSubcategory({
+          categoryId: id!,
+          subcategoryId: pendingDelete.subId,
+        }).unwrap();
+      }
+      setSubcategories((prev) =>
+        prev.filter((_, i) => i !== pendingDelete.index),
+      );
+      setPendingDelete(null);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete item"));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   /* ---------------- UI ---------------- */
   if (isLoading) return <p className="p-6">Loading...</p>;
+  if (isError)
+    return <p className="p-6">{getErrorMessage(error, "Failed to load category details")}</p>;
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
@@ -284,109 +321,19 @@ export default function CategoryDetails() {
           </section>
         </section>
       </main>
-    </div>
-  );
-}
-export function TimeSlotDetail() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  const { data: slots = [] } = useGetConsultationTimeSlotsQuery();
-  const slot = slots.find((s) => s.timeSlotId === Number(id));
-
-  const [form, setForm] = useState({
-    startTime: slot?.startTime || "",
-    endTime: slot?.endTime || "",
-    label: slot?.label || "",
-  });
-
-  const [updateSlot] = useUpdateConsultationTimeSlotMutation();
-  const [deleteSlot] = useDeleteConsultationTimeSlotMutation();
-
-  useEffect(() => {
-    if (slot) {
-      setForm({
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        label: slot.label,
-      });
-    }
-  }, [slot]);
-
-  if (!slot) return <p className="p-6">Time slot not found</p>;
-
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await updateSlot({ timeSlotId: slot.timeSlotId, data: form });
-    alert("Time slot updated!");
-  };
-
-  const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this time slot?")) {
-      await deleteSlot(slot.timeSlotId);
-      navigate("/consultation-management");
-    }
-  };
-
-  return (
-    <div className="flex h-screen bg-gray-50 text-gray-900">
-      <Aside
-        isSidebarOpen={isSidebarOpen}
-        setIsSidebarOpen={setIsSidebarOpen}
+      <ConfirmModal
+        isOpen={pendingDelete !== null}
+        title={
+          pendingDelete?.type === "category"
+            ? "Delete Category"
+            : "Delete Subcategory"
+        }
+        message="Are you sure you want to delete this item? This action cannot be undone."
+        confirmText="Delete"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
       />
-      <main className="flex-1 flex flex-col w-full overflow-y-auto">
-        <Header
-          isSidebarOpen={isSidebarOpen}
-          setIsSidebarOpen={setIsSidebarOpen}
-        />
-        <section className="mt-16 md:ml-64 flex-1 p-6">
-          <h1 className="text-2xl font-semibold text-pink-700 mb-6">
-            Time Slot Detail
-          </h1>
-          <form
-            onSubmit={handleUpdate}
-            className="bg-white p-6 rounded-2xl shadow max-w-lg"
-          >
-            <input
-              type="time"
-              className="p-3 border rounded-lg w-full mb-4 focus:border-pink-700"
-              value={form.startTime}
-              onChange={(e) => setForm({ ...form, startTime: e.target.value })}
-              required
-            />
-            <input
-              type="time"
-              className="p-3 border rounded-lg w-full mb-4 focus:border-pink-700"
-              value={form.endTime}
-              onChange={(e) => setForm({ ...form, endTime: e.target.value })}
-              required
-            />
-            <input
-              className="p-3 border rounded-lg w-full mb-4 focus:border-pink-700"
-              value={form.label}
-              onChange={(e) => setForm({ ...form, label: e.target.value })}
-              placeholder="Label"
-              required
-            />
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                className="bg-pink-700 text-white font-semibold py-2 px-4 rounded-xl hover:bg-pink-600"
-              >
-                Update
-              </button>
-              <button
-                type="button"
-                className="bg-red-600 text-white font-semibold py-2 px-4 rounded-xl hover:bg-red-500"
-                onClick={handleDelete}
-              >
-                Delete
-              </button>
-            </div>
-          </form>
-        </section>
-      </main>
     </div>
   );
 }

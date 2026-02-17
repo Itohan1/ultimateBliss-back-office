@@ -17,8 +17,10 @@ import {
   useDeleteConsultationTimeSlotMutation,
   //useUpdateConsultationTimeSlotMutation,
 } from "../services/consultationTimeSlotApi.ts";
+import ConfirmModal from "../components/ConfirmModal.tsx";
 
 export default function ConsultationManagement() {
+  const NAIRA = "\u20A6";
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [openPlanDropdown, setOpenPlanDropdown] = useState<number | null>(null);
   const [openSlotDropdown, setOpenSlotDropdown] = useState<number | null>(null);
@@ -34,7 +36,9 @@ export default function ConsultationManagement() {
     data: plans = [],
     isLoading: plansLoading,
     refetch: refetchPlans,
-  } = useGetConsultationPlansQuery();
+  } = useGetConsultationPlansQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
   const [addPlan] = useAddConsultationPlanMutation();
   const navigate = useNavigate();
   const [deletePlan] = useDeleteConsultationPlanMutation();
@@ -47,13 +51,19 @@ export default function ConsultationManagement() {
   });
 
   const { data: timeSlots = [], isLoading: timeLoading } =
-    useGetConsultationTimeSlotsQuery();
+    useGetConsultationTimeSlotsQuery(undefined, {
+      refetchOnMountOrArgChange: true,
+    });
   //refetch: refetchTimes,
   const [addTimeSlot] = useAddConsultationTimeSlotMutation();
   const [deleteTimeSlot] = useDeleteConsultationTimeSlotMutation();
   //const [updateTimeSlot] = useUpdateConsultationTimeSlotMutation();
 
   const [showLogin, setShowLogin] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<
+    { type: "plan"; id: number } | { type: "slot"; id: number } | null
+  >(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -105,6 +115,24 @@ export default function ConsultationManagement() {
 
   if (plansLoading || timeLoading) return <p className="p-6">Loading...</p>;
 
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+      if (pendingDelete.type === "plan") {
+        await deletePlan(pendingDelete.id);
+        refetchPlans();
+      } else {
+        await deleteTimeSlot(pendingDelete.id);
+      }
+      setPendingDelete(null);
+      setOpenPlanDropdown(null);
+      setOpenSlotDropdown(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
       <Aside
@@ -117,7 +145,7 @@ export default function ConsultationManagement() {
           setIsSidebarOpen={setIsSidebarOpen}
         />
 
-        <section className="mt-16 md:ml-64 flex-1 p-6">
+        <section className="mt-16 md:ml-64 flex-1 p-2 sm:p-6">
           <h1 className="text-2xl font-semibold text-pink-700 mb-6">
             Consultation Management
           </h1>
@@ -155,7 +183,7 @@ export default function ConsultationManagement() {
                 onChange={
                   (e) => setPlanForm({ ...planForm, amount: e.target.value }) // keep as string
                 }
-                placeholder="Amount (₦)"
+                placeholder={"Amount (" + NAIRA + ")"}
                 className="p-3 border rounded-lg focus:border-pink-700"
                 required
               />
@@ -211,73 +239,120 @@ export default function ConsultationManagement() {
             <h2 className="text-lg font-semibold text-pink-700 mb-4">
               Consultation Plans
             </h2>
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {plans.map((plan, idx) => (
-                  <tr key={plan.consultationPlanId}>
-                    <td className="px-6 py-4">{plan.name}</td>
-                    <td className="px-6 py-4">{plan.description}</td>
-                    <td className="px-6 py-4">₦{plan.amount}</td>
-                    <td className="px-6 py-4 text-right relative">
-                      <div
-                        className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
-                        onClick={() =>
-                          setOpenPlanDropdown(
-                            openPlanDropdown === idx ? null : idx
-                          )
-                        }
-                      >
-                        <EllipsisVertical />
-                      </div>
-                      {openPlanDropdown === idx && (
-                        <div
-                          ref={dropdownRef}
-                          className="absolute right-0 top-8 w-40 bg-white border rounded-xl shadow-lg z-10"
-                        >
-                          <button
-                            className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
-                            onClick={() => {
-                              navigate(
-                                `/consultationplan-detail/${plan.consultationPlanId}`
-                              );
-                              console.log("View plan", plan.consultationPlanId);
-                            }}
-                          >
-                            <Eye size={16} /> View details
-                          </button>
-                          <button
-                            className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
-                            onClick={async () => {
-                              await deletePlan(plan.consultationPlanId);
-                              refetchPlans();
-                              setOpenPlanDropdown(null);
-                            }}
-                          >
-                            <Trash2 size={16} /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
+            <div className="hidden md:block">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Description
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {plans.map((plan, idx) => (
+                    <tr key={plan.consultationPlanId}>
+                      <td className="px-6 py-4">{plan.name}</td>
+                      <td className="px-6 py-4">{plan.description}</td>
+                      <td className="px-6 py-4">
+                        {NAIRA}
+                        {plan.amount}
+                      </td>
+                      <td className="px-6 py-4 text-right relative">
+                        <div
+                          className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
+                          onClick={() =>
+                            setOpenPlanDropdown(
+                              openPlanDropdown === idx ? null : idx,
+                            )
+                          }
+                        >
+                          <EllipsisVertical />
+                        </div>
+                        {openPlanDropdown === idx && (
+                          <div
+                            ref={dropdownRef}
+                            className="absolute right-0 top-8 w-40 bg-white border rounded-xl shadow-lg z-10"
+                          >
+                            <button
+                              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                navigate(
+                                  `/consultationplan-detail/${plan.consultationPlanId}`,
+                                );
+                                console.log(
+                                  "View plan",
+                                  plan.consultationPlanId,
+                                );
+                              }}
+                            >
+                              <Eye size={16} /> View details
+                            </button>
+                            <button
+                              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                setPendingDelete({
+                                  type: "plan",
+                                  id: plan.consultationPlanId,
+                                });
+                              }}
+                            >
+                              <Trash2 size={16} /> Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="space-y-3 md:hidden">
+              {plans.map((plan) => (
+                <div
+                  key={plan.consultationPlanId}
+                  className="rounded-xl border border-gray-200 p-4"
+                >
+                  <p className="font-semibold">{plan.name}</p>
+                  <p className="text-sm text-gray-600">{plan.description}</p>
+                  <p className="text-sm text-gray-600">
+                    {NAIRA}
+                    {plan.amount}
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/consultationplan-detail/${plan.consultationPlanId}`,
+                        )
+                      }
+                      className="rounded-lg bg-pink-600 px-3 py-2 text-sm font-medium text-white"
+                    >
+                      View details
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPendingDelete({
+                          type: "plan",
+                          id: plan.consultationPlanId,
+                        });
+                      }}
+                      className="rounded-lg border border-red-500 px-3 py-2 text-sm font-medium text-red-600"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Time Slots Table */}
@@ -285,77 +360,123 @@ export default function ConsultationManagement() {
             <h2 className="text-lg font-semibold text-pink-700 mb-4">
               Time Slots
             </h2>
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="bg-gray-50">
-                  {/*<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <div className="hidden md:block">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr className="bg-gray-50">
+                    {/*<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Time Slot
                   </th>*/}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Start Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    End Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Label
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {timeSlots.map((slot, idx) => (
-                  <tr key={slot.timeSlotId}>
-                    <td className="px-6 py-4">{slot.startTime}</td>
-                    <td className="px-6 py-4">{slot.endTime}</td>
-                    <td className="px-6 py-4">{slot.label}</td>
-                    <td className="px-6 py-4 text-right relative">
-                      <div
-                        className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
-                        onClick={() =>
-                          setOpenSlotDropdown(
-                            openSlotDropdown === idx ? null : idx
-                          )
-                        }
-                      >
-                        <EllipsisVertical />
-                      </div>
-                      {openSlotDropdown === idx && (
-                        <div
-                          ref={dropdownRef}
-                          className="absolute right-0 top-8 w-40 bg-white border rounded-xl shadow-lg z-10"
-                        >
-                          <button
-                            className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
-                            onClick={() => {
-                              navigate(`/timeslot-detail/${slot.timeSlotId}`);
-                              console.log("View Time Slot", slot.timeSlotId);
-                            }}
-                          >
-                            <Eye size={16} /> View details
-                          </button>
-                          <button
-                            className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
-                            onClick={async () => {
-                              await deleteTimeSlot(slot.timeSlotId);
-                              //refetchTimes();
-                              setOpenSlotDropdown(null);
-                            }}
-                          >
-                            <Trash2 size={16} /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Start Time
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      End Time
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Label
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {timeSlots.map((slot, idx) => (
+                    <tr key={slot.timeSlotId}>
+                      <td className="px-6 py-4">{slot.startTime}</td>
+                      <td className="px-6 py-4">{slot.endTime}</td>
+                      <td className="px-6 py-4">{slot.label}</td>
+                      <td className="px-6 py-4 text-right relative">
+                        <div
+                          className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
+                          onClick={() =>
+                            setOpenSlotDropdown(
+                              openSlotDropdown === idx ? null : idx,
+                            )
+                          }
+                        >
+                          <EllipsisVertical />
+                        </div>
+                        {openSlotDropdown === idx && (
+                          <div
+                            ref={dropdownRef}
+                            className="absolute right-0 top-8 w-40 bg-white border rounded-xl shadow-lg z-10"
+                          >
+                            <button
+                              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                navigate(`/timeslot-detail/${slot.timeSlotId}`);
+                                console.log("View Time Slot", slot.timeSlotId);
+                              }}
+                            >
+                              <Eye size={16} /> View details
+                            </button>
+                            <button
+                              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                setPendingDelete({
+                                  type: "slot",
+                                  id: slot.timeSlotId,
+                                });
+                              }}
+                            >
+                              <Trash2 size={16} /> Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="space-y-3 md:hidden">
+              {timeSlots.map((slot) => (
+                <div
+                  key={slot.timeSlotId}
+                  className="rounded-xl border border-gray-200 p-4"
+                >
+                  <p className="font-semibold">{slot.label}</p>
+                  <p className="text-sm text-gray-600">
+                    {slot.startTime} - {slot.endTime}
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() =>
+                        navigate(`/timeslot-detail/${slot.timeSlotId}`)
+                      }
+                      className="rounded-lg bg-pink-600 px-3 py-2 text-sm font-medium text-white"
+                    >
+                      View details
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPendingDelete({
+                          type: "slot",
+                          id: slot.timeSlotId,
+                        });
+                      }}
+                      className="rounded-lg border border-red-500 px-3 py-2 text-sm font-medium text-red-600"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </main>
+      <ConfirmModal
+        isOpen={pendingDelete !== null}
+        title="Delete Item"
+        message="Are you sure you want to delete this item? This action cannot be undone."
+        confirmText="Delete"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+      />
       {showLogin && <LoginPopup onClose={() => setShowLogin(false)} />}
     </div>
   );

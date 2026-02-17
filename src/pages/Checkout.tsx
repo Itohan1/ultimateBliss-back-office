@@ -10,7 +10,9 @@ import { useGetPaymentMethodsQuery } from "../services/paymentMethodApi";
 import { useCreateOrderMutation } from "../services/orderApi";
 import type { BillingInfo } from "../types/order";
 import toast from "react-hot-toast";
+
 export default function Checkout() {
+  const naira = new Intl.NumberFormat("en-NG");
   const [billing, setBilling] = useState<BillingInfo>({
     firstname: "",
     lastname: "",
@@ -24,7 +26,9 @@ export default function Checkout() {
   const [selectedPayment, setSelectedPayment] = useState("");
   const navigate = useNavigate();
 
-  const { data: cart } = useGetCartQuery();
+  const { data: cart, refetch: refetchCart } = useGetCartQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
   const { data: paymentMethods } = useGetPaymentMethodsQuery();
   const [createOrder, { isLoading }] = useCreateOrderMutation();
 
@@ -51,9 +55,11 @@ export default function Checkout() {
 
       await createOrder({
         cartId: cart.cartId,
-        billing, // ✅ REQUIRED
+        billing,
         paymentMethodId: selectedPayment,
       }).unwrap();
+      await refetchCart();
+
       toast.success("You have successfully checked-out");
       navigate("/sales");
     } catch (err: unknown) {
@@ -77,6 +83,7 @@ export default function Checkout() {
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
         />
+
         <section className="mt-16 md:ml-64 p-6">
           <h1 className="text-2xl font-semibold text-pink-700 mb-6">
             Checkout
@@ -125,18 +132,14 @@ export default function Checkout() {
                 placeholder="City"
                 className="p-2 border rounded-lg"
                 value={billing.city}
-                onChange={(e) =>
-                  setBilling({ ...billing, city: e.target.value })
-                }
+                onChange={(e) => setBilling({ ...billing, city: e.target.value })}
               />
 
               <input
                 placeholder="State"
                 className="p-2 border rounded-lg"
                 value={billing.state}
-                onChange={(e) =>
-                  setBilling({ ...billing, state: e.target.value })
-                }
+                onChange={(e) => setBilling({ ...billing, state: e.target.value })}
               />
 
               <input
@@ -159,20 +162,28 @@ export default function Checkout() {
                 <div>
                   <p className="font-semibold">{item.name}</p>
                   <p className="text-gray-500">
-                    ₦{item.price.toLocaleString()} x {item.quantity}
+                    {item.discountType !== "free" &&
+                    item.discountedPrice < item.sellingPrice ? (
+                      <>
+                        <span className="line-through mr-2">
+                          ₦{naira.format(item.sellingPrice)}
+                        </span>
+                        <span>₦{naira.format(item.discountedPrice)}</span>
+                      </>
+                    ) : (
+                      <span>₦{naira.format(item.discountedPrice)}</span>
+                    )}{" "}
+                    x {item.quantity}
                   </p>
                 </div>
-                <p className="font-bold">
-                  ₦{(item.price * item.quantity).toLocaleString()}
-                </p>
+                <p className="font-bold">₦{naira.format(item.totalPrice)}</p>
               </div>
             ))}
 
             <div className="text-right pt-4 space-y-2">
-              <p>Subtotal: ₦{cart.subTotal.toLocaleString()}</p>
-              <p className="font-bold text-lg">
-                Total: ₦{cart.grandTotal.toLocaleString()}
-              </p>
+              <p>Subtotal: ₦{naira.format(cart.subTotal)}</p>
+              <p>Discount: -₦{naira.format(cart.totalDiscount)}</p>
+              <p className="font-bold text-lg">Total: ₦{naira.format(cart.grandTotal)}</p>
             </div>
 
             <div className="mt-6">

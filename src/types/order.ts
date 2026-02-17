@@ -4,11 +4,16 @@ export interface OrderItem {
   productId: number;
   name: string;
   image: string;
-  price: number;
+  price?: number;
+  sellingPrice?: number;
+  discountedPrice?: number;
   quantity: number;
   totalPrice: number;
-  discount: number;
-  discountType: "free" | "promotion" | "none";
+  discount?: number;
+  freeQuantity?: number;
+  freeItemDescription?: string;
+  minPurchaseQuantity?: number;
+  discountType: "free" | "percentage" | "flat" | "promotion" | "none";
 }
 
 export interface BillingInfo {

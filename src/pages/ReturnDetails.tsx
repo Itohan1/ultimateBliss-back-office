@@ -14,7 +14,7 @@ import {
 import { toast } from "react-hot-toast";
 import { getErrorMessage } from "../getErrorMessage";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function ReturnDetails() {
   const { id } = useParams<{ id: string }>();
@@ -49,7 +49,14 @@ export default function ReturnDetails() {
         reason: item.reason,
         adjustInventory: item.adjustInventory,
       });
-      setShowImagePreview(item.image ? `${API_URL}${item.image}` : null);
+      if (item.image) {
+        const imageUrl = item.image.startsWith("http")
+          ? item.image
+          : `${API_URL}${item.image}`;
+        setShowImagePreview(imageUrl);
+      } else {
+        setShowImagePreview(null);
+      }
     }
   }, [item]);
 

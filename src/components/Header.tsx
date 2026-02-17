@@ -1,7 +1,7 @@
 import { Bell, User, Search, Menu, LogOut, LogIn } from "lucide-react";
 import ultimateLogo from "../assets/ultimateLogo.svg";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import LoginPopup from "../components/LoginPopup.tsx";
 import { useGetCurrentAdminQuery } from "../services/adminApi";
 
@@ -21,6 +21,13 @@ export default function Header({
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const adminToken = localStorage.getItem("adminToken");
+  const location = useLocation();
+  const isNotificationPage = location.pathname.startsWith("/notifications");
+  const isUserPage =
+    location.pathname.startsWith("/users") ||
+    location.pathname.startsWith("/user/") ||
+    location.pathname.startsWith("/admin-accounts") ||
+    location.pathname.startsWith("/admins/");
 
   const { data: admin } = useGetCurrentAdminQuery(undefined, {
     skip: !adminToken,
@@ -96,7 +103,11 @@ export default function Header({
             <Bell
               width={22}
               height={22}
-              className="text-gray-600 hover:text-pink-600"
+              className={
+                isNotificationPage
+                  ? "text-pink-600"
+                  : "text-gray-600 hover:text-pink-600"
+              }
             />
             <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
           </button>
@@ -105,7 +116,9 @@ export default function Header({
           <div ref={dropdownRef} className="relative">
             <button
               onClick={() => setOpenUserMenu((prev) => !prev)}
-              className="flex items-center gap-2 hover:text-pink-700"
+              className={`flex items-center gap-2 hover:text-pink-700 ${
+                isUserPage ? "text-pink-600" : "text-gray-700"
+              }`}
             >
               <User width={24} height={24} />
               <span className="hidden md:inline">

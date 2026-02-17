@@ -17,7 +17,7 @@ interface AdminLoginResponse {
 export const adminLoginApi = createApi({
   reducerPath: "adminLoginApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5000/api/v1/admins",
+    baseUrl: `${import.meta.env.VITE_API_URL}/api/v1/admins`,
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("adminToken");
       if (token) {

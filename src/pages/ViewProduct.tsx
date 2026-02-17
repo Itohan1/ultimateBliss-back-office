@@ -10,19 +10,24 @@ import {
   useUpdateInventoryItemMutation,
   useDeleteInventoryItemMutation,
 } from "../services/inventoryApi";
-import type { InventoryItem } from "../types/inventory.ts";
+import type { InventoryItem } from "../types/InventoryItem.ts";
 import { getErrorMessage } from "../getErrorMessage.ts";
+import { compressImageFile } from "../utils/imageUpload";
+import ConfirmModal from "../components/ConfirmModal.tsx";
 //import { getErrorMessage } from "../getErrorMessage.ts";
 
 export default function ViewProduct() {
   const navigate = useNavigate();
-  const [deleteInventoryItem] = useDeleteInventoryItemMutation();
+  const [deleteInventoryItem, { isLoading: isDeleting }] =
+    useDeleteInventoryItemMutation();
   const [product, setProduct] = useState<InventoryItem | null>(null);
   const [updateInventoryItem] = useUpdateInventoryItemMutation();
   const [productImage, setProductImage] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const { id: productId } = useParams<{ id: string }>();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const { data: productData, isLoading } = useGetInventoryItemQuery(
     productId || ""
   );
@@ -33,6 +38,7 @@ export default function ViewProduct() {
   useEffect(() => {
     if (productData) {
       setProduct({
+        productId: productData.productId,
         productName: productData.productName,
         sku: productData.sku,
         category: productData.category,
@@ -52,11 +58,32 @@ export default function ViewProduct() {
         pricing: {
           costPrice: productData.pricing.costPrice,
           sellingPrice: productData.pricing.sellingPrice,
+          discount: productData.pricing.discount ?? 0,
+          discountType: productData.pricing.discountType ?? "none",
+          discountedPrice:
+            productData.pricing.discountedPrice ??
+            productData.pricing.sellingPrice,
+          freeOffer: {
+            minQuantityOfPurchase:
+              productData.pricing.freeOffer?.minQuantityOfPurchase ?? 1,
+            freeItemQuantity: productData.pricing.freeOffer?.freeItemQuantity ?? 1,
+            freeItemDescription:
+              productData.pricing.freeOffer?.freeItemDescription ?? "",
+          },
         },
       });
       setProductImage(productData.productImage ?? null);
+      setImageFile(null);
     }
   }, [productData]);
+
+  useEffect(() => {
+    return () => {
+      if (productImage?.startsWith("blob:")) {
+        URL.revokeObjectURL(productImage);
+      }
+    };
+  }, [productImage]);
 
   type EditableProductKeys =
     | "productName"
@@ -115,17 +142,44 @@ export default function ViewProduct() {
       setProduct({ ...product, [key]: e.target.value });
     }
   };
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setProductImage(imageUrl);
+      const maxSizeBytes = 25 * 1024 * 1024;
+      if (file.size > maxSizeBytes) {
+        toast.error("Image must be 25MB or smaller");
+        return;
+      }
+
+      let uploadFile = file;
+      try {
+        uploadFile = await compressImageFile(file, {
+          maxBytes: 2 * 1024 * 1024,
+          maxDimension: 1600,
+        });
+        if (uploadFile.size < file.size) {
+          toast.success("Image optimized for faster upload");
+        }
+      } catch {
+        uploadFile = file;
+      }
+
+      setImageFile(uploadFile);
+      setProductImage(URL.createObjectURL(uploadFile));
     }
   };
 
-  const handleClearImage = () => setProductImage(null);
+  const handleClearImage = () => {
+    setImageFile(null);
+    setProductImage(null);
+  };
 
   const handleSave = async () => {
+    if (!productImage) {
+      toast.error("Product image is required");
+      return;
+    }
+
     const stockNumber = Number(product?.inventory.stockNumber);
     const lowStockThreshold = Number(product?.inventory.lowStockThreshold);
 
@@ -159,6 +213,34 @@ export default function ViewProduct() {
         return;
       }
     }
+
+    const discount = Number(product?.pricing.discount ?? 0);
+    const sellingPrice = Number(product?.pricing.sellingPrice ?? 0);
+    const discountType = product?.pricing.discountType ?? "none";
+
+    if (discount < 0) {
+      toast.error("Discount cannot be negative");
+      return;
+    }
+
+    if (
+      (discountType === "percentage" || discountType === "flat") &&
+      discount <= 0
+    ) {
+      toast.error("Discount must be greater than 0 for percentage or flat type");
+      return;
+    }
+
+    if (discountType === "percentage" && discount > 100) {
+      toast.error("Percentage discount cannot exceed 100%");
+      return;
+    }
+
+    if (discountType === "flat" && discount > sellingPrice) {
+      toast.error("Flat discount cannot exceed selling price");
+      return;
+    }
+
     if (!productId) return;
 
     const payload = {
@@ -166,9 +248,9 @@ export default function ViewProduct() {
       sku: product?.sku,
       category: product?.category,
       subcategory: product?.subcategory,
-      brand: product?.brandName,
+      brandName: product?.brandName,
       manufacturer: product?.manufacturer,
-      unit: product?.unitOfMeasure,
+      unitOfMeasure: product?.unitOfMeasure,
       inventory: {
         stockNumber: Number(product?.inventory?.stockNumber),
         lowStockThreshold: Number(product?.inventory?.lowStockThreshold),
@@ -177,12 +259,36 @@ export default function ViewProduct() {
       pricing: {
         costPrice: Number(product?.pricing.costPrice),
         sellingPrice: Number(product?.pricing.sellingPrice),
+        discount: Number(product?.pricing.discount ?? 0),
+        discountType: product?.pricing.discountType ?? "none",
+        discountedPrice: Number(
+          product?.pricing.discountedPrice ?? product?.pricing.sellingPrice ?? 0,
+        ),
+        freeOffer: {
+          minQuantityOfPurchase: Number(
+            product?.pricing.freeOffer?.minQuantityOfPurchase ?? 1,
+          ),
+          freeItemQuantity: Number(product?.pricing.freeOffer?.freeItemQuantity ?? 1),
+          freeItemDescription: product?.pricing.freeOffer?.freeItemDescription ?? "",
+        },
       },
-      image: productImage ?? null,
     };
 
     try {
-      await updateInventoryItem({ productId, data: payload }).unwrap();
+      const shouldClearImage = Boolean(productData?.productImage && !productImage);
+
+      if (imageFile) {
+        const form = new FormData();
+        form.append("payload", JSON.stringify(payload));
+        form.append("image", imageFile);
+        await updateInventoryItem({ productId, data: form }).unwrap();
+      } else {
+        await updateInventoryItem({
+          productId,
+          data: shouldClearImage ? { ...payload, productImage: null } : payload,
+        }).unwrap();
+      }
+
       setIsEditing(false);
       toast("Product updated successfully!");
       navigate("/inventory");
@@ -236,12 +342,7 @@ export default function ViewProduct() {
                 <X size={18} /> Cancel
               </button>
               <button
-                onClick={async () => {
-                  if (typeof product.productId === "number") {
-                    await deleteInventoryItem(product.productId);
-                    navigate("/inventory");
-                  }
-                }}
+                onClick={() => setIsConfirmOpen(true)}
                 className="flex items-center gap-2 w-full px-4 py-2 bg-red-700 text-white rounded-xl"
               >
                 <Trash2 size={16} /> Delete
@@ -377,7 +478,7 @@ export default function ViewProduct() {
                 <input
                   type="date"
                   min={new Date().toISOString().split("T")[0]}
-                  value={product?.inventory?.expiryDate}
+                  value={product?.inventory?.expiryDate || ""}
                   onChange={(e) => handleChange(e, "expiry")}
                   readOnly={!isEditing}
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
@@ -412,6 +513,169 @@ export default function ViewProduct() {
                   className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium">Discount Type</label>
+                {isEditing ? (
+                  <select
+                    value={product?.pricing?.discountType ?? "none"}
+                    onChange={(e) =>
+                      setProduct((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              pricing: {
+                                ...prev.pricing,
+                                discountType: e.target.value as
+                                  | "none"
+                                  | "percentage"
+                                  | "flat"
+                                  | "free",
+                              },
+                            }
+                          : prev,
+                      )
+                    }
+                    className="w-full mt-1 border rounded-lg px-3 py-2 bg-white"
+                  >
+                    <option value="none">No Discount</option>
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="flat">Flat Amount (NGN)</option>
+                    <option value="free">Buy X Get Y Free</option>
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={product?.pricing?.discountType ?? "none"}
+                    readOnly
+                    className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
+                  />
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Discount Value</label>
+                <input
+                  type="text"
+                  value={
+                    product?.pricing?.discountType === "percentage"
+                      ? `${product?.pricing?.discount ?? 0}%`
+                      : product?.pricing?.discountType === "flat"
+                        ? `NGN ${(product?.pricing?.discount ?? 0).toLocaleString()}`
+                        : product?.pricing?.discountType === "free"
+                          ? "Buy X Get Y Free"
+                          : "No Discount"
+                  }
+                  readOnly
+                  className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Final Price</label>
+                <input
+                  type="text"
+                  value={`NGN ${(product?.pricing?.discountedPrice ?? product?.pricing?.sellingPrice ?? 0).toLocaleString()}`}
+                  readOnly
+                  className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
+                />
+              </div>
+
+              {product?.pricing?.discountType === "free" ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium">
+                      Min Quantity Of Purchase
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={product?.pricing?.freeOffer?.minQuantityOfPurchase ?? 0}
+                      readOnly={!isEditing}
+                      onChange={(e) =>
+                        setProduct((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                pricing: {
+                                  ...prev.pricing,
+                                  freeOffer: {
+                                    ...prev.pricing.freeOffer,
+                                    minQuantityOfPurchase: Number(e.target.value),
+                                  },
+                                },
+                              }
+                            : prev,
+                        )
+                      }
+                      className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">
+                      Free Item Quantity
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={product?.pricing?.freeOffer?.freeItemQuantity ?? 0}
+                      readOnly={!isEditing}
+                      onChange={(e) =>
+                        setProduct((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                pricing: {
+                                  ...prev.pricing,
+                                  freeOffer: {
+                                    ...prev.pricing.freeOffer,
+                                    freeItemQuantity: Number(e.target.value),
+                                  },
+                                },
+                              }
+                            : prev,
+                        )
+                      }
+                      className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium">
+                      Free Item Description
+                    </label>
+                    <input
+                      type="text"
+                      value={product?.pricing?.freeOffer?.freeItemDescription ?? ""}
+                      readOnly={!isEditing}
+                      onChange={(e) =>
+                        setProduct((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                pricing: {
+                                  ...prev.pricing,
+                                  freeOffer: {
+                                    ...prev.pricing.freeOffer,
+                                    freeItemDescription: e.target.value,
+                                  },
+                                },
+                              }
+                            : prev,
+                        )
+                      }
+                      className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium">Free Offer</label>
+                  <input
+                    type="text"
+                    value="-"
+                    readOnly
+                    className="w-full mt-1 border rounded-lg px-3 py-2 bg-gray-50"
+                  />
+                </div>
+              )}
             </div>
           </section>
 
@@ -427,7 +691,7 @@ export default function ViewProduct() {
                 />
               ) : (
                 <p className="text-gray-500 mb-4">
-                  Drag and drop logo here, or click “Add Image”
+                  Drag and drop logo here, or click "Add Image"
                 </p>
               )}
 
@@ -454,6 +718,21 @@ export default function ViewProduct() {
           </section>
         </section>
       </main>
+      <ConfirmModal
+        isOpen={isConfirmOpen}
+        title="Delete Product"
+        message="Are you sure you want to delete this product? This action cannot be undone."
+        confirmText="Delete"
+        onCancel={() => setIsConfirmOpen(false)}
+        onConfirm={async () => {
+          if (typeof product.productId === "number") {
+            await deleteInventoryItem(product.productId);
+            setIsConfirmOpen(false);
+            navigate("/inventory");
+          }
+        }}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

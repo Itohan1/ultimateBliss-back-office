@@ -111,11 +111,7 @@ export default function LearnDetail() {
 
             {(preview || learn?.image) && (
               <img
-                src={
-                  preview
-                    ? preview
-                    : `http://localhost:5000/uploads/${learn?.image}`
-                }
+                src={preview ? preview : learn?.image}
                 className="w-full max-h-64 object-cover rounded-lg"
               />
             )}

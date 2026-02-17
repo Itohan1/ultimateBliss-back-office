@@ -8,6 +8,7 @@ import {
 } from "../services/notificationApi";
 import { Trash2, CheckCircle } from "lucide-react";
 import { useState } from "react";
+import ConfirmModal from "../components/ConfirmModal.tsx";
 
 export default function Notifications() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -16,8 +17,16 @@ export default function Notifications() {
     useGetAdminNotificationsQuery();
 
   const [markAsRead] = useMarkNotificationAsReadMutation();
-  const [deleteNotification] = useDeleteNotificationMutation();
+  const [deleteNotification, { isLoading: isDeleting }] =
+    useDeleteNotificationMutation();
   const [markAllAsRead] = useMarkAllAsReadMutation();
+  const [selectedDeleteId, setSelectedDeleteId] = useState<string | null>(null);
+
+  const handleConfirmDelete = async () => {
+    if (!selectedDeleteId) return;
+    await deleteNotification(selectedDeleteId);
+    setSelectedDeleteId(null);
+  };
 
   //if (isLoading) return <p className="p-6">Loading notifications...</p>;
 
@@ -82,7 +91,7 @@ export default function Notifications() {
                       )}
 
                       <button
-                        onClick={() => deleteNotification(n._id)}
+                        onClick={() => setSelectedDeleteId(n._id)}
                         className="text-red-600 hover:text-red-800"
                       >
                         <Trash2 size={18} />
@@ -95,6 +104,15 @@ export default function Notifications() {
           )}
         </section>
       </main>
+      <ConfirmModal
+        isOpen={selectedDeleteId !== null}
+        title="Delete Notification"
+        message="Are you sure you want to delete this notification? This action cannot be undone."
+        confirmText="Delete"
+        onCancel={() => setSelectedDeleteId(null)}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

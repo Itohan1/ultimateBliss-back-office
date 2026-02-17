@@ -48,7 +48,7 @@ export default function AdminAccounts() {
       if (!statusTarget) return;
 
       await fetch(
-        `http://localhost:5000/api/v1/admins/${statusTarget._id}/status`,
+        `${import.meta.env.VITE_API_URL}/api/v1/admins/${statusTarget._id}/status`,
         {
           method: "PATCH",
           headers: {
@@ -73,10 +73,10 @@ export default function AdminAccounts() {
     }
   };
 
-  const handleDeleteClick = (id: string) => {
+  /*const handleDeleteClick = (id: string) => {
     setSelectedId(id);
     setIsConfirmOpen(true);
-  };
+  };*/
 
   const handleConfirmDelete = async () => {
     if (!selectedId) return;
@@ -132,7 +132,7 @@ export default function AdminAccounts() {
           setIsSidebarOpen={setIsSidebarOpen}
         />
 
-        <section className="mt-16 md:ml-64 flex-1 p-6">
+        <section className="mt-16 md:ml-64 flex-1 p-2 sm:p-6">
           <h1 className="text-2xl font-semibold text-pink-700 mb-4">
             Admin Accounts
           </h1>
@@ -168,103 +168,148 @@ export default function AdminAccounts() {
               </select>
             </div>
 
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Last Login
-                  </th>
-                </tr>
-              </thead>
+            <div className="hidden md:block">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Last Login
+                    </th>
+                  </tr>
+                </thead>
 
-              <tbody className="divide-y divide-gray-200">
-                {filteredAdmins.map((admin: Admin, idx: number) => (
-                  <tr key={admin._id}>
-                    <td className="px-6 py-4">
-                      {admin.firstname} {admin.lastname}
-                    </td>
-                    <td className="px-6 py-4">{admin.email}</td>
-                    <td className="px-6 py-4">
-                      {admin.isSuperAdmin ? (
-                        <span className="flex items-center gap-1 text-pink-700 font-semibold">
-                          <Shield size={14} /> Super Admin
-                        </span>
-                      ) : (
-                        "Admin"
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          admin.isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {admin.isActive ? "Active" : "Deactivated"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {admin.lastLogin
-                        ? new Date(admin.lastLogin).toLocaleDateString()
-                        : "—"}
-                    </td>
-
-                    <td className="px-6 py-4 text-right relative">
-                      <div
-                        className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
-                        onClick={() =>
-                          setOpenDropdown(openDropdown === idx ? null : idx)
-                        }
-                      >
-                        <EllipsisVertical />
-                      </div>
-
-                      {openDropdown === idx && (
-                        <div
-                          ref={dropdownRef}
-                          className="absolute right-10 top-8 w-40 bg-white border rounded-xl shadow-lg z-10"
+                <tbody className="divide-y divide-gray-200">
+                  {filteredAdmins.map((admin: Admin, idx: number) => (
+                    <tr key={admin._id}>
+                      <td className="px-6 py-4">
+                        {admin.firstname} {admin.lastname}
+                      </td>
+                      <td className="px-6 py-4">{admin.email}</td>
+                      <td className="px-6 py-4">
+                        {admin.isSuperAdmin ? (
+                          <span className="flex items-center gap-1 text-pink-700 font-semibold">
+                            <Shield size={14} /> Super Admin
+                          </span>
+                        ) : (
+                          "Admin"
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            admin.isActive
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
                         >
-                          {/*<button
+                          {admin.isActive ? "Active" : "Deactivated"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {admin.lastLogin
+                          ? new Date(admin.lastLogin).toLocaleDateString()
+                          : "--"}
+                      </td>
+
+                      <td className="px-6 py-4 text-right relative">
+                        <div
+                          className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
+                          onClick={() =>
+                            setOpenDropdown(openDropdown === idx ? null : idx)
+                          }
+                        >
+                          <EllipsisVertical />
+                        </div>
+
+                        {openDropdown === idx && (
+                          <div
+                            ref={dropdownRef}
+                            className="absolute right-10 top-8 w-40 bg-white border rounded-xl shadow-lg z-10"
+                          >
+                            {/*<button
                             onClick={() => navigate(`/admins/${admin._id}`)}
                             className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
                           >
                             <Eye size={16} /> View
                           </button>*/}
-                          <button
-                            onClick={() => {
-                              setStatusTarget(admin);
-                              setIsConfirmStatusChange(true);
-                            }}
-                            className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
-                          >
-                            {admin.isActive ? "Deactivate" : "Activate"}
-                          </button>
-                          <button
-                            onClick={async () => handleDeleteClick(admin._id)}
-                            className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 text-red-600"
-                          >
-                            <Trash2 size={16} /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                            <button
+                              onClick={() => {
+                                setStatusTarget(admin);
+                                setIsConfirmStatusChange(true);
+                              }}
+                              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
+                            >
+                              {admin.isActive ? "Deactivate" : "Activate"}
+                            </button>
+                            <button
+                              disabled
+                              className="flex items-center gap-2 w-full px-4 py-2 text-red-600 opacity-50 cursor-not-allowed"
+                            >
+                              <Trash2 size={16} /> Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-3 md:hidden">
+              {filteredAdmins.map((admin: Admin) => (
+                <div
+                  key={admin._id}
+                  className="rounded-xl border border-gray-200 p-4"
+                >
+                  <p className="font-semibold">
+                    {admin.firstname} {admin.lastname}
+                  </p>
+                  <p className="text-sm text-gray-600">{admin.email}</p>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Role: {admin.isSuperAdmin ? "Super Admin" : "Admin"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Status: {admin.isActive ? "Active" : "Deactivated"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Last Login:{" "}
+                    {admin.lastLogin
+                      ? new Date(admin.lastLogin).toLocaleDateString()
+                      : "--"}
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setStatusTarget(admin);
+                        setIsConfirmStatusChange(true);
+                      }}
+                      className="rounded-lg bg-pink-600 px-3 py-2 text-sm font-medium text-white"
+                    >
+                      {admin.isActive ? "Deactivate" : "Activate"}
+                    </button>
+                    <button
+                      disabled
+                      className="rounded-lg border border-red-500 px-3 py-2 text-sm font-medium text-red-600 opacity-50 cursor-not-allowed"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
         <ConfirmModal

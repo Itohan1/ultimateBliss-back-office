@@ -13,6 +13,7 @@ import AdvertisementManagement from "./pages/AdManagement.tsx";
 import CategoriesList from "./pages/Categories.tsx";
 import CategoryDetails from "./pages/CategoryDetails.tsx";
 import PaymentMethods from "./pages/PaymentMethods.tsx";
+import PaymentMethodDetail from "./pages/PaymentMethodDetail.tsx";
 import OrderDetails from "./pages/OrderDetails.tsx";
 import ConsultationManagement from "./pages/ConsultationManagement.tsx";
 import { ConsultationPlanDetail } from "./pages/ConsultationPlanDetail.tsx";
@@ -30,6 +31,7 @@ import Notifications from "./pages/Notifications.tsx";
 import NotificationsListener from "./components/NotificationsListener";
 import AdminAccounts from "./pages/AdminAccounts.tsx";
 import AddAdmin from "./pages/AddAdmin.tsx";
+import DiscountManagement from "./pages/DiscountManagement.tsx";
 
 function App() {
   return (
@@ -40,6 +42,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/inventory/returns" element={<DamagedReturned />} />
+        <Route path="/discounts" element={<DiscountManagement />} />
         <Route path="/admin-accounts" element={<AdminAccounts />} />
         <Route path="/admins/add" element={<AddAdmin />} />
         <Route path="/notifications" element={<Notifications />}></Route>
@@ -63,6 +66,7 @@ function App() {
         <Route path="/sales" element={<SalesManagement />}></Route>
         <Route path="/ads" element={<AdvertisementManagement />} />
         <Route path="/payment-methods" element={<PaymentMethods />} />
+        <Route path="/payment-methods/:id" element={<PaymentMethodDetail />} />
         <Route
           path="/inventory/inventory-details/:id"
           element={<ViewProduct />}

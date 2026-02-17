@@ -22,11 +22,15 @@ interface CreateAdminPayload {
 }
 
 interface SendOtpPayload {
-  email: string;
+  email?: string;
+  phone?: string;
+  channel?: "email" | "whatsapp";
 }
 
 interface VerifyOtpPayload {
-  email: string;
+  email?: string;
+  phone?: string;
+  channel?: "email" | "whatsapp";
   otp: string;
 }
 
@@ -35,7 +39,7 @@ interface VerifyOtpPayload {
 export const adminApi = createApi({
   reducerPath: "adminApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5000/api/v1",
+    baseUrl: `${import.meta.env.VITE_API_URL}/api/v1`,
     prepareHeaders: (headers) => {
       const token = localStorage.getItem("adminToken");
       if (token) {

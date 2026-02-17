@@ -63,7 +63,7 @@ export default function UserManagement() {
           setIsSidebarOpen={setIsSidebarOpen}
         />
 
-        <section className="mt-16 md:ml-64 p-6">
+        <section className="mt-16 md:ml-64 p-2 sm:p-6">
           <h1 className="text-2xl font-semibold text-pink-700 mb-6">
             User Management
           </h1>
@@ -107,49 +107,81 @@ export default function UserManagement() {
 
           {/* User Table */}
           <div className="bg-white p-5 rounded-2xl shadow">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Date Joined
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Last Login
-                  </th>
-                </tr>
-              </thead>
+            <div className="hidden md:block">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Date Joined
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Last Login
+                    </th>
+                  </tr>
+                </thead>
 
-              <tbody className="divide-y divide-gray-200">
-                {paginatedUsers.map((user, index) => (
-                  <tr
+                <tbody className="divide-y divide-gray-200">
+                  {paginatedUsers.map((user, index) => (
+                    <tr
+                      onClick={() => navigate(`/user/${user.userId}`)}
+                      key={`${user.userId}-${index}`}
+                      className="cursor-pointer hover:bg-gray-100"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {user.firstname} {user.lastname}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {user.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {user.status}
+                      </td>
+                      <td className="px-6 py-4">{user.datejoined}</td>
+                      <td className="px-6 py-4">{user.lastlogin}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-3 md:hidden">
+              {paginatedUsers.length ? (
+                paginatedUsers.map((user, index) => (
+                  <button
+                    type="button"
                     onClick={() => navigate(`/user/${user.userId}`)}
                     key={`${user.userId}-${index}`}
-                    className="cursor-pointer hover:bg-gray-100"
+                    className="w-full rounded-xl border border-gray-200 p-4 text-left hover:bg-gray-50"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <p className="font-semibold text-gray-900">
                       {user.firstname} {user.lastname}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    </p>
+                    <p className="text-sm text-gray-600">{user.email}</p>
+                    <p className="mt-2 text-sm">
+                      <span className="font-medium text-gray-700">Status:</span>{" "}
                       {user.status}
-                    </td>
-                    <td className="px-6 py-4">{user.datejoined}</td>
-                    <td className="px-6 py-4">{user.lastlogin}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Joined: {user.datejoined}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Last login: {user.lastlogin}
+                    </p>
+                  </button>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">No users found.</p>
+              )}
+            </div>
 
             {/* Pagination */}
             <div className="flex items-center justify-center gap-3 mt-5">

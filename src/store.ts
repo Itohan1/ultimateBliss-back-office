@@ -15,6 +15,7 @@ import { adApi } from "./services/adApi";
 import { cartApi } from "./services/cartApi";
 import { returnApi } from "./services/returnApi";
 import { notificationApi } from "./services/notificationApi";
+import { discountApi } from "./services/discountApi";
 
 export const store = configureStore({
   reducer: {
@@ -34,6 +35,7 @@ export const store = configureStore({
     [learnApi.reducerPath]: learnApi.reducer,
     [cartApi.reducerPath]: cartApi.reducer,
     [returnApi.reducerPath]: returnApi.reducer,
+    [discountApi.reducerPath]: discountApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
@@ -46,6 +48,7 @@ export const store = configureStore({
       .concat(orderApi.middleware)
       .concat(cartApi.middleware)
       .concat(returnApi.middleware)
+      .concat(discountApi.middleware)
       .concat(adminApi.middleware)
       .concat(consultationPlanApi.middleware)
       .concat(consultationTimeSlotApi.middleware)

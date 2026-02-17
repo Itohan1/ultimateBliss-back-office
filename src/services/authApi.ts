@@ -10,7 +10,7 @@ import type { UpdateUserRequest } from "../types/userUpdate.ts";
 export const api = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5000/api/v1/auth",
+    baseUrl: `${import.meta.env.VITE_API_URL}/api/v1/auth`,
     prepareHeaders: (headers, { getState }) => {
       const state = getState() as RootState;
       const token = state.adminAuth.token;
@@ -32,7 +32,7 @@ export const api = createApi({
 
     // ✅ GET SINGLE USER
     getUser: builder.query<User, string>({
-      query: (userId) => `/users/${userId}`,
+      query: (userId) => `/admin/users/${userId}`,
       providesTags: ["Users"],
     }),
 
@@ -56,6 +56,18 @@ export const api = createApi({
       invalidatesTags: ["Users"],
     }),
 
+    updateUserStatusAdmin: builder.mutation<
+      User,
+      { userId: string; status: "Active" | "Suspended" }
+    >({
+      query: ({ userId, status }) => ({
+        url: `/admin/users/${userId}/status`,
+        method: "PATCH",
+        body: { status },
+      }),
+      invalidatesTags: ["Users"],
+    }),
+
     // ✅ DELETE USER
     deleteUser: builder.mutation<{ message: string }, string>({
       query: (userId) => ({
@@ -73,4 +85,5 @@ export const {
   useRegisterUserMutation,
   useEditUserMutation,
   useDeleteUserMutation,
+  useUpdateUserStatusAdminMutation,
 } = api;

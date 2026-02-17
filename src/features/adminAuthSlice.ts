@@ -36,7 +36,7 @@ export const fetchAdminProfile = createAsyncThunk<
     }
 
     const res = await axios.get<Admin>(
-      "http://localhost:5000/api/v1/admins/me",
+      `${import.meta.env.VITE_API_URL}/api/v1/admins/me`,
       {
         headers: {
           Authorization: `Bearer ${token}`,

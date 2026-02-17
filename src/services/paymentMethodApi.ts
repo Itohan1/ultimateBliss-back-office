@@ -4,7 +4,7 @@ import type { RootState } from "../store";
 export const paymentMethodApi = createApi({
   reducerPath: "paymentMethodApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5000/api/v1/payment-methods",
+    baseUrl: `${import.meta.env.VITE_API_URL}/api/v1/payment-methods`,
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootState).adminAuth.token;
 

@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "../store";
-const BASE_URL = "http://localhost:5000/api/v1";
+const BASE_URL = `${import.meta.env.VITE_API_URL}/api/v1`;
 
 // Type for a consultation time slot
 export interface ConsultationTimeSlot {
@@ -53,7 +53,7 @@ export const consultationTimeSlotApi = createApi({
     >({
       query: ({ timeSlotId, data }) => ({
         url: `/consultation-times/${timeSlotId}`,
-        method: "PUT",
+        method: "PATCH",
         body: data,
       }),
       invalidatesTags: ["ConsultationTimeSlot"],
