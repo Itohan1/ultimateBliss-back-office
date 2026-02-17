@@ -161,8 +161,8 @@ export default function Inventory() {
             </div>
           </div>
 
-          <div className="bg-white overflow-x-auto sm:overflow-x-visible p-4 rounded-2xl shadow">
-            <div className="flex justify-between items-center gap-2 mb-4">
+          <div className="bg-white p-4 rounded-2xl shadow">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <input
                 type="text"
                 placeholder="Search products..."
@@ -184,40 +184,43 @@ export default function Inventory() {
               </select>
             </div>
 
-            <div className="hidden md:block">
-              <table className="min-w-full divide-y divide-gray-200">
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-[980px] w-full table-fixed divide-y divide-gray-200">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       Image
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       Product Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       SKU
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       Category
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       Price
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       Discount
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       In Stock
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       Date
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {paginatedProducts.map((product) => (
                     <tr key={product.productId}>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4">
                         {product.productImage ? (
                           <img
                             src={product.productImage}
@@ -228,10 +231,19 @@ export default function Inventory() {
                           <div className="h-12 w-12 rounded-md border bg-gray-100" />
                         )}
                       </td>
-                      <td className="px-6 py-4">{product.productName}</td>
-                      <td className="px-6 py-4">{product.sku}</td>
-                      <td className="px-6 py-4">{product.category}</td>
-                      <td className="px-6 py-4">
+                      <td
+                        className="px-4 py-4 max-w-[180px] truncate"
+                        title={product.productName}
+                      >
+                        {product.productName}
+                      </td>
+                      <td className="px-4 py-4 max-w-[120px] truncate" title={product.sku}>
+                        {product.sku}
+                      </td>
+                      <td className="px-4 py-4 max-w-[130px] truncate" title={product.category}>
+                        {product.category}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex flex-col">
                           <span className="font-medium">
                             NGN {(product.pricing.discountedPrice ?? product.pricing.sellingPrice).toLocaleString()}
@@ -245,7 +257,7 @@ export default function Inventory() {
                             )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4 max-w-[250px] text-sm leading-5 break-words">
                         {product.pricing.discountType === "percentage" &&
                         (product.pricing.discount ?? 0) > 0
                           ? `-${product.pricing.discount}%`
@@ -256,13 +268,13 @@ export default function Inventory() {
                               ? `Buy ${product.pricing.freeOffer?.minQuantityOfPurchase ?? 1} Get ${product.pricing.freeOffer?.freeItemQuantity ?? 1} ${product.pricing.freeOffer?.freeItemDescription ?? "item"} Free`
                               : "-"}
                       </td>
-                      <td className="px-6 py-4">{product.inventory.stockNumber}</td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">{product.inventory.stockNumber}</td>
+                      <td className="px-4 py-4 whitespace-nowrap">
                         {product.inventory.expiryDate
                           ? new Date(product.inventory.expiryDate).toLocaleDateString()
                           : "-"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right relative">
+                      <td className="px-4 py-4 whitespace-nowrap text-right relative">
                         <div
                           className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
                           onClick={(e) => {
