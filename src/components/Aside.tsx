@@ -58,6 +58,11 @@ export default function Aside({ isSidebarOpen, setIsSidebarOpen }: AsideProps) {
       path: "/discounts",
       matchPaths: ["/discounts"],
     },
+    {
+      name: "Settings",
+      path: "/settings",
+      matchPaths: ["/settings"],
+    },
     { name: "Learn Management", path: "/learn", matchPaths: ["/learn"] },
   ];
 

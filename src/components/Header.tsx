@@ -27,7 +27,8 @@ export default function Header({
     location.pathname.startsWith("/users") ||
     location.pathname.startsWith("/user/") ||
     location.pathname.startsWith("/admin-accounts") ||
-    location.pathname.startsWith("/admins/");
+    location.pathname.startsWith("/admins/") ||
+    location.pathname.startsWith("/settings");
 
   const { data: admin } = useGetCurrentAdminQuery(undefined, {
     skip: !adminToken,
@@ -138,6 +139,16 @@ export default function Header({
                         {admin?.email}
                       </p>
                     </div>
+
+                    <button
+                      onClick={() => {
+                        setOpenUserMenu(false);
+                        navigate("/settings");
+                      }}
+                      className="w-full border-b px-4 py-2 text-left text-gray-700 hover:bg-gray-100"
+                    >
+                      Settings
+                    </button>
 
                     <button
                       onClick={handleLogout}

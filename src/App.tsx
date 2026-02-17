@@ -32,6 +32,7 @@ import NotificationsListener from "./components/NotificationsListener";
 import AdminAccounts from "./pages/AdminAccounts.tsx";
 import AddAdmin from "./pages/AddAdmin.tsx";
 import DiscountManagement from "./pages/DiscountManagement.tsx";
+import Settings from "./pages/Settings.tsx";
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/inventory/returns" element={<DamagedReturned />} />
         <Route path="/discounts" element={<DiscountManagement />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="/admin-accounts" element={<AdminAccounts />} />
         <Route path="/admins/add" element={<AddAdmin />} />
         <Route path="/notifications" element={<Notifications />}></Route>

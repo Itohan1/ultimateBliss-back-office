@@ -21,6 +21,18 @@ interface CreateAdminPayload {
   isSuperAdmin?: boolean;
 }
 
+interface UpdateCurrentAdminPayload {
+  firstname: string;
+  lastname: string;
+  email: string;
+}
+
+interface ChangeAdminPasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 interface SendOtpPayload {
   email?: string;
   phone?: string;
@@ -81,6 +93,29 @@ export const adminApi = createApi({
       providesTags: ["Admin"],
     }),
 
+    updateCurrentAdmin: builder.mutation<
+      { message: string; admin: Admin },
+      UpdateCurrentAdminPayload
+    >({
+      query: (body) => ({
+        url: "/admins/me",
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Admin"],
+    }),
+
+    changeCurrentAdminPassword: builder.mutation<
+      { message: string },
+      ChangeAdminPasswordPayload
+    >({
+      query: (body) => ({
+        url: "/admins/me/password",
+        method: "PATCH",
+        body,
+      }),
+    }),
+
     /* -------- SEND OTP -------- */
     sendOtp: builder.mutation<{ message: string }, SendOtpPayload>({
       query: (body) => ({
@@ -110,4 +145,6 @@ export const {
   useDeleteAdminMutation,
   useSendOtpMutation,
   useVerifyOtpMutation,
+  useUpdateCurrentAdminMutation,
+  useChangeCurrentAdminPasswordMutation,
 } = adminApi;

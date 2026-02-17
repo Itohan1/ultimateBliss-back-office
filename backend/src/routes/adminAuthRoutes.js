@@ -9,6 +9,8 @@ import {
   updateAdminStatus,
   deleteAdmin,
   createFirstSuperAdmin,
+  updateCurrentAdminProfile,
+  changeCurrentAdminPassword,
 } from "../controllers/adminAuthController.js";
 import { protect, adminOnly, superAdminOnly } from "../middleware/adminAuth.js";
 
@@ -34,6 +36,8 @@ router.get("/me", protect, adminOnly, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+router.patch("/me", protect, adminOnly, updateCurrentAdminProfile);
+router.patch("/me/password", protect, adminOnly, changeCurrentAdminPassword);
 
 router.post("/bootstrap", createFirstSuperAdmin);
 
