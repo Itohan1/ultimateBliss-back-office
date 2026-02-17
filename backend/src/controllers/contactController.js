@@ -1,25 +1,9 @@
-import nodemailer from "nodemailer";
 import { notificationEmailTemplate } from "../utils/emailTemplates.js";
+import { transporter } from "../utils/mailer.js";
 import User from "../models/User.js";
 
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: {
-    user: process.env.MAIL_USER, // your Gmail
-    pass: process.env.MAIL_PASS, // Gmail App Password
-  },
-});
-
-transporter.verify((err, success) => {
-  if (err) {
-    console.error("❌ SMTP ERROR:", err);
-  } else {
-    console.log("✅ SMTP ready to send emails");
-  }
-});
-
 async function sendEmail({ to, subject, html, replyTo }) {
-  const info = await transporter.sendMail({
+  await transporter.sendMail({
     from: `"Ultimate Bliss" <${process.env.MAIL_USER}>`,
     to,
     subject,
@@ -30,19 +14,16 @@ async function sendEmail({ to, subject, html, replyTo }) {
 
 const Contact = async (req, res) => {
   try {
-    console.log("Get the user", req.user);
-
     const user = req.user;
-    const UserMessage = req.body.message;
+    const userMessage = req.body.message;
     const name = req.body.name;
     const email = req.body.email;
 
     let contactName = name;
-    let contactTitle = `New Contact Message - UltimateBliss`;
+    let contactTitle = "New Contact Message - UltimateBliss";
 
     if (user) {
       const userData = await User.findOne({ userId: user.userId });
-      console.log("This is the userData", userData);
       if (userData) {
         contactName = `${userData.firstname} ${userData.lastname}`;
         if (!userData.lastname || !userData.firstname) {
@@ -55,7 +36,7 @@ const Contact = async (req, res) => {
     const message = `
 <strong>Name:</strong> ${contactName}<br/>
 <strong>Email:</strong> ${email}<br/><br/>
-${UserMessage}
+${userMessage}
 `;
 
     await sendEmail({

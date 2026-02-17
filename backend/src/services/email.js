@@ -1,20 +1,4 @@
-import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: {
-    user: process.env.MAIL_USER, // your Gmail
-    pass: process.env.MAIL_PASS, // Gmail App Password
-  },
-});
-
-transporter.verify((err, success) => {
-  if (err) {
-    console.error("❌ SMTP ERROR:", err);
-  } else {
-    console.log("✅ SMTP ready to send emails");
-  }
-});
+import { transporter } from "../utils/mailer.js";
 
 export async function sendEmail({ to, subject, html }) {
   try {
@@ -24,8 +8,8 @@ export async function sendEmail({ to, subject, html }) {
       subject,
       html,
     });
-    console.log("📧 Email sent:", info.messageId);
+    console.log("Email sent:", info.messageId);
   } catch (err) {
-    console.error("❌ Email failed:", err);
+    console.error("Email failed:", err);
   }
 }
