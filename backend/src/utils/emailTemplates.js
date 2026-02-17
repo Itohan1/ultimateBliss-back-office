@@ -1,3 +1,7 @@
+const FRONTEND_BASE_URL =
+  process.env.FRONTEND_URL ||
+  `http://localhost:${process.env.PORT || 5173}`;
+
 export function notificationEmailTemplate({ title, message }) {
   return `
   <div style="
@@ -21,7 +25,7 @@ export function notificationEmailTemplate({ title, message }) {
         text-align:center;
       ">
         <img
-          src="http://localhost:5173/src/assets/ultimateLogo.svg"
+          src="${FRONTEND_BASE_URL}/src/assets/ultimateLogo.svg"
           alt="Ultimate Bliss"
         />
       </div>
