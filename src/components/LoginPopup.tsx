@@ -5,7 +5,16 @@ import { setAdminCredentials } from "../features/adminAuthSlice";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import toast from "react-hot-toast";
 import { getErrorMessage } from "../getErrorMessage";
-export default function LoginPopup({ onClose }: { onClose: () => void }) {
+
+interface LoginPopupProps {
+  onClose: () => void;
+  lockOpen?: boolean;
+}
+
+export default function LoginPopup({
+  onClose,
+  lockOpen = false,
+}: LoginPopupProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -68,12 +77,14 @@ export default function LoginPopup({ onClose }: { onClose: () => void }) {
         />
 
         <div className="flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border hover:bg-gray-100"
-          >
-            Cancel
-          </button>
+          {!lockOpen && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg border hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+          )}
 
           <button
             onClick={handleLogin}

@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import Dashboard from "./pages/Dashboard.tsx";
 import Inventory from "./pages/Inventory.tsx";
 import ScrollToTop from "./components/ScrollToTop.tsx";
@@ -33,55 +35,74 @@ import AdminAccounts from "./pages/AdminAccounts.tsx";
 import AddAdmin from "./pages/AddAdmin.tsx";
 import DiscountManagement from "./pages/DiscountManagement.tsx";
 import Settings from "./pages/Settings.tsx";
+import LoginPopup from "./components/LoginPopup.tsx";
+import type { RootState } from "./store";
 
 function App() {
+  const adminToken = useSelector((state: RootState) => state.adminAuth.token);
+  const [showLoginPopup, setShowLoginPopup] = useState(!adminToken);
+
+  useEffect(() => {
+    setShowLoginPopup(!adminToken);
+  }, [adminToken]);
+
   return (
-    <Router>
-      <ScrollToTop />
-      <NotificationsListener />
-      {/*<Navigationbar />*/}
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/inventory/returns" element={<DamagedReturned />} />
-        <Route path="/discounts" element={<DiscountManagement />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/admin-accounts" element={<AdminAccounts />} />
-        <Route path="/admins/add" element={<AddAdmin />} />
-        <Route path="/notifications" element={<Notifications />}></Route>
-        <Route path="/orders" element={<AdminOrders />} />
-        <Route path="/admin/checkout" element={<Checkout />} />
-        <Route path="/inventory/returns/:id" element={<ReturnDetails />} />
-        <Route path="/returns/add" element={<AddDamagedReturn />} />
-        <Route path="/learn/:id" element={<LearnDetail />} />
-        <Route path="/admin/cart" element={<AdminCart />} />
-        <Route path="/orders/:orderId" element={<OrderDetails />} />
-        <Route path="/bookings" element={<Bookings />} />
-        <Route path="/bookings/:bookingId" element={<BookingDetails />} />
-        <Route
-          path="/consultationplan-detail/:id"
-          element={<ConsultationPlanDetail />}
+    <>
+      <Router>
+        <ScrollToTop />
+        <NotificationsListener />
+        {/*<Navigationbar />*/}
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/inventory/returns" element={<DamagedReturned />} />
+          <Route path="/discounts" element={<DiscountManagement />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/admin-accounts" element={<AdminAccounts />} />
+          <Route path="/admins/add" element={<AddAdmin />} />
+          <Route path="/notifications" element={<Notifications />}></Route>
+          <Route path="/orders" element={<AdminOrders />} />
+          <Route path="/admin/checkout" element={<Checkout />} />
+          <Route path="/inventory/returns/:id" element={<ReturnDetails />} />
+          <Route path="/returns/add" element={<AddDamagedReturn />} />
+          <Route path="/learn/:id" element={<LearnDetail />} />
+          <Route path="/admin/cart" element={<AdminCart />} />
+          <Route path="/orders/:orderId" element={<OrderDetails />} />
+          <Route path="/bookings" element={<Bookings />} />
+          <Route path="/bookings/:bookingId" element={<BookingDetails />} />
+          <Route
+            path="/consultationplan-detail/:id"
+            element={<ConsultationPlanDetail />}
+          />
+          <Route path="/timeslot-detail/:id" element={<TimeSlotDetail />} />
+          <Route path="/consultation" element={<ConsultationManagement />} />
+          <Route path="/user/:id" element={<UserDetails />} />
+          <Route path="/inventory" element={<Inventory />}></Route>
+          <Route path="/sales" element={<SalesManagement />}></Route>
+          <Route path="/ads" element={<AdvertisementManagement />} />
+          <Route path="/payment-methods" element={<PaymentMethods />} />
+          <Route path="/payment-methods/:id" element={<PaymentMethodDetail />} />
+          <Route
+            path="/inventory/inventory-details/:id"
+            element={<ViewProduct />}
+          />
+          <Route path="/categories/add" element={<AddCategory />} />
+          <Route path="/categories" element={<CategoriesList />} />
+          <Route path="/categories/:id" element={<CategoryDetails />} />
+          <Route path="/users" element={<UserManagement />} />
+          <Route path="/inventory/add-product" element={<AddProduct />}></Route>
+          <Route path="learn" element={<LearnManagement />}></Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+      {showLoginPopup && (
+        <LoginPopup
+          onClose={() => {
+            if (adminToken) setShowLoginPopup(false);
+          }}
+          lockOpen={!adminToken}
         />
-        <Route path="/timeslot-detail/:id" element={<TimeSlotDetail />} />
-        <Route path="/consultation" element={<ConsultationManagement />} />
-        <Route path="/user/:id" element={<UserDetails />} />
-        <Route path="/inventory" element={<Inventory />}></Route>
-        <Route path="/sales" element={<SalesManagement />}></Route>
-        <Route path="/ads" element={<AdvertisementManagement />} />
-        <Route path="/payment-methods" element={<PaymentMethods />} />
-        <Route path="/payment-methods/:id" element={<PaymentMethodDetail />} />
-        <Route
-          path="/inventory/inventory-details/:id"
-          element={<ViewProduct />}
-        />
-        <Route path="/categories/add" element={<AddCategory />} />
-        <Route path="/categories" element={<CategoriesList />} />
-        <Route path="/categories/:id" element={<CategoryDetails />} />
-        <Route path="/users" element={<UserManagement />} />
-        <Route path="/inventory/add-product" element={<AddProduct />}></Route>
-        <Route path="learn" element={<LearnManagement />}></Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+      )}
+    </>
   );
 }
 
