@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Aside from "../components/Aside";
 import Header from "../components/Header";
 import { EllipsisVertical, Eye, Trash2 } from "lucide-react";
@@ -23,6 +23,7 @@ export default function Inventory() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const [productToDelete, setProductToDelete] = useState<number | null>(null);
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
 
   const { data: products = [], isLoading, refetch } = useGetInventoryItemsQuery();
   const { data: returnItems = [] } = useGetReturnItemsQuery();
@@ -37,7 +38,13 @@ export default function Inventory() {
   };
 
   useEffect(() => {
-    const closeDropdown = () => setOpenDropdown(null);
+    const closeDropdown = (event: MouseEvent) => {
+      if (!tableContainerRef.current) return;
+      const target = event.target as Node;
+      if (!tableContainerRef.current.contains(target)) {
+        setOpenDropdown(null);
+      }
+    };
     document.addEventListener("mousedown", closeDropdown);
     return () => document.removeEventListener("mousedown", closeDropdown);
   }, []);
@@ -184,7 +191,7 @@ export default function Inventory() {
               </select>
             </div>
 
-            <div className="hidden md:block overflow-x-auto">
+            <div ref={tableContainerRef} className="hidden md:block overflow-x-auto">
               <table className="min-w-[980px] w-full table-fixed divide-y divide-gray-200">
                 <thead>
                   <tr className="bg-gray-50">
