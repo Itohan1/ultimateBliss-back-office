@@ -1,5 +1,5 @@
 import express from "express";
-import dotenv from "dotenv";
+import "dotenv/config";
 import cors from "cors";
 import authRoutes from "./src/routes/authRoutes.js";
 import adRoutes from "./src/routes/adRoutes.js";
@@ -25,7 +25,6 @@ import Contact from "./src/controllers/contactController.js";
 import { attachSession, optionalAuth } from "./src/middleware/auth.js";
 import multer from "multer";
 import discountRoutes from "./src/routes/discountRoutes.js";
-dotenv.config();
 
 const app = express();
 app.use(cors());

@@ -1,13 +1,11 @@
+import "dotenv/config";
 import http from "http";
 import { Server } from "socket.io";
 import app from "./app.js";
-import dotenv from "dotenv";
 import connectDB from "./src/config/db.js";
 import { autoCancelOldOrders } from "./src/jobs/autoCancelOrders.js";
 import { remindPendingPayments } from "./src/jobs/remindPendingPayments.js";
 import { autoCompleteOrders } from "./src/jobs/autoComplete.js";
-
-dotenv.config();
 
 const server = http.createServer(app);
 
