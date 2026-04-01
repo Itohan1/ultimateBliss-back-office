@@ -29,8 +29,9 @@ export default function ProductCategorySelector({
     if (!categories?.length) return;
 
     const selectedCategory = categories.find((cat) => cat.name === formData.category);
-    if (selectedCategory && selectedCategory._id !== selectedCategoryId) {
-      setSelectedCategoryId(selectedCategory._id);
+    const nextCategoryId = selectedCategory?._id ?? "";
+    if (nextCategoryId !== selectedCategoryId) {
+      setSelectedCategoryId(nextCategoryId);
     }
   }, [categories, formData.category, selectedCategoryId]);
 

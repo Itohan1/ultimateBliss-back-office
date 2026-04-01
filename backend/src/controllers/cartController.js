@@ -1,5 +1,6 @@
 import Cart from "../models/Cart.js";
 import Counter from "../models/Counter.js";
+import Inventory from "../models/Inventory.js";
 
 /* Utility: Calculate totals */
 const calculateTotals = (cart) => {
@@ -74,6 +75,47 @@ const transformCart = (cart) => ({
     freeItemDescription: item.freeItemDescription ?? "",
   })),
 });
+
+const pruneDeletedProductsFromCart = async (cart) => {
+  if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+    return false;
+  }
+
+  const productIds = [
+    ...new Set(
+      cart.items
+        .map((item) => Number(item.productId))
+        .filter((productId) => Number.isFinite(productId)),
+    ),
+  ];
+
+  if (productIds.length === 0) {
+    return false;
+  }
+
+  const existingProducts = await Inventory.find({
+    productId: { $in: productIds },
+  })
+    .select("productId")
+    .lean();
+
+  const existingProductIdSet = new Set(
+    existingProducts.map((product) => Number(product.productId)),
+  );
+
+  const originalCount = cart.items.length;
+  cart.items = cart.items.filter((item) =>
+    existingProductIdSet.has(Number(item.productId)),
+  );
+
+  if (cart.items.length === originalCount) {
+    return false;
+  }
+
+  calculateTotals(cart);
+  await cart.save();
+  return true;
+};
 
 /* Add to cart controller */
 export const addToCart = async (req, res) => {
@@ -255,6 +297,8 @@ export const getCart = async (req, res) => {
 
     if (!cart) return res.status(404).json({ message: "Cart not found" });
 
+    await pruneDeletedProductsFromCart(cart);
+
     res.json(cart);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -280,6 +324,8 @@ export const getMyCart = async (req, res) => {
     if (!cart) {
       return res.json({ items: [] });
     }
+
+    await pruneDeletedProductsFromCart(cart);
 
     res.json(cart);
   } catch (err) {
