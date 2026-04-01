@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Aside from "../components/Aside";
 import Header from "../components/Header";
-import { EllipsisVertical, Eye, Trash2 } from "lucide-react";
+import { Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useGetCategoriesQuery } from "../services/categoryApi";
 import {
@@ -10,6 +10,8 @@ import {
 } from "../services/inventoryApi";
 import { useGetReturnItemsQuery } from "../services/returnApi";
 import ConfirmModal from "../components/ConfirmModal";
+import toast from "react-hot-toast";
+import { getErrorMessage } from "../getErrorMessage";
 
 export default function Inventory() {
   const ITEMS_PER_PAGE = 10;
@@ -21,9 +23,9 @@ export default function Inventory() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<number | null>(null);
-  const [productToDelete, setProductToDelete] = useState<number | null>(null);
-  const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const [productToDelete, setProductToDelete] = useState<number | string | null>(
+    null,
+  );
 
   const { data: products = [], isLoading, refetch } = useGetInventoryItemsQuery();
   const { data: returnItems = [] } = useGetReturnItemsQuery();
@@ -32,29 +34,22 @@ export default function Inventory() {
 
   const handleConfirmDelete = async () => {
     if (productToDelete === null) return;
-    await deleteInventoryItem(productToDelete);
-    await refetch();
-    setProductToDelete(null);
+    try {
+      await deleteInventoryItem(productToDelete).unwrap();
+      await refetch();
+      toast.success("Product deleted successfully");
+      setProductToDelete(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to delete product."));
+    }
   };
-
-  useEffect(() => {
-    const closeDropdown = (event: MouseEvent) => {
-      if (!tableContainerRef.current) return;
-      const target = event.target as Node;
-      if (!tableContainerRef.current.contains(target)) {
-        setOpenDropdown(null);
-      }
-    };
-    document.addEventListener("mousedown", closeDropdown);
-    return () => document.removeEventListener("mousedown", closeDropdown);
-  }, []);
 
   const filteredProducts = products.filter((product) => {
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch =
       !term ||
       product.productName.toLowerCase().includes(term) ||
-      product.sku.toLowerCase().includes(term) ||
+      (product.sku ?? "").toLowerCase().includes(term) ||
       product.category.toLowerCase().includes(term);
 
     const matchesCategory =
@@ -71,6 +66,29 @@ export default function Inventory() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
   );
+  const getPercentageGain = (product: (typeof products)[number]) => {
+    if (typeof product.pricing.percentageGain === "number") {
+      return product.pricing.percentageGain;
+    }
+
+    const costPrice = Number(product.pricing.costPrice ?? 0);
+    const sellingPrice = Number(product.pricing.sellingPrice ?? 0);
+    if (costPrice <= 0) return 0;
+    return Number((((sellingPrice - costPrice) / costPrice) * 100).toFixed(2));
+  };
+  const getProductRouteId = (product: (typeof products)[number]) =>
+    product.productId ?? product._id;
+  const now = new Date();
+  const soonThreshold = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  const getExpiryStatus = (expiryDate?: string | null) => {
+    if (!expiryDate) return "none";
+    const date = new Date(expiryDate);
+    if (Number.isNaN(date.getTime())) return "none";
+    if (date < now) return "expired";
+    if (date <= soonThreshold) return "expiringSoon";
+    return "none";
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -88,16 +106,10 @@ export default function Inventory() {
     lowStock: products.filter(
       (p) => p.inventory.stockNumber <= p.inventory.lowStockThreshold,
     ).length,
-    expired: products.filter(
-      (p) =>
-        p.inventory.expiryDate && new Date(p.inventory.expiryDate) < new Date(),
-    ).length,
+    expired: products.filter((p) => getExpiryStatus(p.inventory.expiryDate) === "expired")
+      .length,
     expiringSoon: products.filter(
-      (p) =>
-        p.inventory.expiryDate &&
-        new Date(p.inventory.expiryDate) > new Date() &&
-        new Date(p.inventory.expiryDate) <
-          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      (p) => getExpiryStatus(p.inventory.expiryDate) === "expiringSoon",
     ).length,
   };
 
@@ -191,7 +203,7 @@ export default function Inventory() {
               </select>
             </div>
 
-            <div ref={tableContainerRef} className="hidden md:block overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="min-w-[980px] w-full table-fixed divide-y divide-gray-200">
                 <thead>
                   <tr className="bg-gray-50">
@@ -211,22 +223,31 @@ export default function Inventory() {
                       Price
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
+                      % Gain
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       Discount
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
                       In Stock
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
-                      Date
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Actions
+                      Expiry Date
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {paginatedProducts.map((product) => (
-                    <tr key={product.productId}>
+                    <tr
+                      key={String(getProductRouteId(product) ?? product.sku ?? product.productName)}
+                      onClick={() => {
+                        const routeId = getProductRouteId(product);
+                        if (routeId !== undefined) {
+                          navigate(`/inventory/inventory-details/${routeId}`);
+                        }
+                      }}
+                      className="cursor-pointer hover:bg-pink-50"
+                    >
                       <td className="px-4 py-4">
                         {product.productImage ? (
                           <img
@@ -244,8 +265,11 @@ export default function Inventory() {
                       >
                         {product.productName}
                       </td>
-                      <td className="px-4 py-4 max-w-[120px] truncate" title={product.sku}>
-                        {product.sku}
+                      <td
+                        className="px-4 py-4 max-w-[120px] truncate"
+                        title={product.sku || "-"}
+                      >
+                        {product.sku || "-"}
                       </td>
                       <td className="px-4 py-4 max-w-[130px] truncate" title={product.category}>
                         {product.category}
@@ -264,6 +288,17 @@ export default function Inventory() {
                             )}
                         </div>
                       </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span
+                          className={
+                            getPercentageGain(product) >= 0
+                              ? "text-green-700 font-medium"
+                              : "text-red-600 font-medium"
+                          }
+                        >
+                          {getPercentageGain(product).toFixed(2)}%
+                        </span>
+                      </td>
                       <td className="px-4 py-4 max-w-[250px] text-sm leading-5 break-words">
                         {product.pricing.discountType === "percentage" &&
                         (product.pricing.discount ?? 0) > 0
@@ -277,53 +312,25 @@ export default function Inventory() {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">{product.inventory.stockNumber}</td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        {product.inventory.expiryDate
-                          ? new Date(product.inventory.expiryDate).toLocaleDateString()
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-right relative">
-                        <div
-                          className="cursor-pointer text-gray-500 hover:text-pink-600 inline-block"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenDropdown(
-                              openDropdown === product.productId
-                                ? null
-                                : product.productId,
-                            );
-                          }}
-                        >
-                          <EllipsisVertical />
-                        </div>
-
-                        {openDropdown === product.productId && (
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="absolute right-10 top-8 w-40 bg-white border rounded-xl shadow-lg z-10"
-                          >
-                            <button
-                              onClick={() =>
-                                navigate(
-                                  `/inventory/inventory-details/${product.productId}`,
-                                )
-                              }
-                              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
-                            >
-                              <Eye size={16} /> View Details
-                            </button>
-
-                            <button
-                              onClick={async () => {
-                                if (typeof product.productId === "number") {
-                                  setProductToDelete(product.productId);
-                                }
-                                setOpenDropdown(null);
-                              }}
-                              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
-                            >
-                              <Trash2 size={16} /> Delete Product
-                            </button>
+                        {product.inventory.expiryDate ? (
+                          <div className="flex flex-col">
+                            <span>
+                              {new Date(product.inventory.expiryDate).toLocaleDateString()}
+                            </span>
+                            {getExpiryStatus(product.inventory.expiryDate) === "expired" && (
+                              <span className="text-xs font-medium text-red-600">
+                                Expired
+                              </span>
+                            )}
+                            {getExpiryStatus(product.inventory.expiryDate) ===
+                              "expiringSoon" && (
+                              <span className="text-xs font-medium text-amber-600">
+                                Expiring soon
+                              </span>
+                            )}
                           </div>
+                        ) : (
+                          "-"
                         )}
                       </td>
                     </tr>
@@ -335,7 +342,7 @@ export default function Inventory() {
             <div className="space-y-3 md:hidden">
               {paginatedProducts.map((product) => (
                 <div
-                  key={product.productId}
+                  key={String(getProductRouteId(product) ?? product.sku ?? product.productName)}
                   className="rounded-xl border border-gray-200 p-4"
                 >
                   {product.productImage ? (
@@ -346,12 +353,15 @@ export default function Inventory() {
                     />
                   ) : null}
                   <p className="font-semibold">{product.productName}</p>
-                  <p className="text-sm text-gray-600">SKU: {product.sku}</p>
+                  <p className="text-sm text-gray-600">SKU: {product.sku || "-"}</p>
                   <p className="text-sm text-gray-600">
                     Category: {product.category}
                   </p>
                   <p className="text-sm text-gray-600">
                     Price: NGN {(product.pricing.discountedPrice ?? product.pricing.sellingPrice).toLocaleString()}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Gain: {getPercentageGain(product).toFixed(2)}%
                   </p>
                   {product.pricing.discountType !== "none" && (
                     <p className="text-sm text-gray-600">
@@ -368,23 +378,42 @@ export default function Inventory() {
                   </p>
                   <p className="text-sm text-gray-600">
                     Expiry:{" "}
-                    {product.inventory.expiryDate
-                      ? new Date(product.inventory.expiryDate).toLocaleDateString()
-                      : "-"}
+                    {product.inventory.expiryDate ? (
+                      <>
+                        {new Date(product.inventory.expiryDate).toLocaleDateString()}
+                        {getExpiryStatus(product.inventory.expiryDate) === "expired" && (
+                          <span className="ml-2 text-xs font-medium text-red-600">
+                            Expired
+                          </span>
+                        )}
+                        {getExpiryStatus(product.inventory.expiryDate) ===
+                          "expiringSoon" && (
+                          <span className="ml-2 text-xs font-medium text-amber-600">
+                            Expiring soon
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "-"
+                    )}
                   </p>
                   <div className="mt-3 flex gap-2">
                     <button
-                      onClick={() =>
-                        navigate(`/inventory/inventory-details/${product.productId}`)
-                      }
+                      onClick={() => {
+                        const routeId = getProductRouteId(product);
+                        if (routeId !== undefined) {
+                          navigate(`/inventory/inventory-details/${routeId}`);
+                        }
+                      }}
                       className="rounded-lg bg-pink-600 px-3 py-2 text-sm font-medium text-white"
                     >
                       View Details
                     </button>
                     <button
                       onClick={() => {
-                        if (typeof product.productId === "number") {
-                          setProductToDelete(product.productId);
+                        const routeId = getProductRouteId(product);
+                        if (routeId !== undefined) {
+                          setProductToDelete(routeId);
                         }
                       }}
                       className="rounded-lg border border-red-500 px-3 py-2 text-sm font-medium text-red-600"

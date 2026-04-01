@@ -105,6 +105,16 @@ export default function AddProduct() {
 
   const handleSubmit = async () => {
     try {
+      if (!formData.productName.trim()) {
+        toast.error("Product name is required");
+        return;
+      }
+
+      if (!formData.category.trim()) {
+        toast.error("Category is required");
+        return;
+      }
+
       if (!imageFile) {
         toast.error("Product image is required");
         return;
@@ -176,17 +186,17 @@ export default function AddProduct() {
       // --------- BUILD PAYLOAD ---------
       const payload: CreateInventoryItem = {
         productName: formData.productName,
-        sku: formData.sku,
+        sku: formData.sku.trim() || undefined,
         category: formData.category,
         subcategory: formData.subcategory,
         description: formData.description,
         brandName: formData.brandName,
-        manufacturer: formData.manufacturer,
-        unitOfMeasure: formData.unitOfMeasure,
+        manufacturer: formData.manufacturer.trim() || undefined,
+        unitOfMeasure: formData.unitOfMeasure.trim() || undefined,
         inventory: {
           stockNumber,
           lowStockThreshold,
-          expiryDate: formData.expiryDate,
+          expiryDate: formData.expiryDate || undefined,
         },
         pricing: {
           costPrice: Number(formData.costPrice),
@@ -260,6 +270,17 @@ export default function AddProduct() {
 
     return selling;
   })();
+  const percentageGain = (() => {
+    const cost = Number(formData.costPrice) || 0;
+    const selling = Number(formData.sellingPrice) || 0;
+    if (cost <= 0) return 0;
+    return Number((((selling - cost) / cost) * 100).toFixed(2));
+  })();
+
+  const hasDiscountPreview =
+    (formData.discountType === "percentage" ||
+      formData.discountType === "flat") &&
+    (Number(formData.discount) || 0) > 0;
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
@@ -325,24 +346,26 @@ export default function AddProduct() {
                   className="input"
                 />
                 <Input
-                  label="SKU"
+                  label="SKU (Optional)"
                   name="sku"
                   placeholder="SKU"
                   value={formData.sku}
                   onChange={handleChange}
                   className="input mt-4"
                 />
-                <ProductCategorySelector
-                  formData={formData}
-                  handleChange={handleChange}
-                />
+                <div className="mb-6">
+                  <ProductCategorySelector
+                    formData={formData}
+                    handleChange={handleChange}
+                  />
+                </div>
                 <Input
                   label="Description"
                   name="description"
                   placeholder="Product description"
                   value={formData.description}
                   onChange={handleChange}
-                  className="input mt-4"
+                  className="input mt-6"
                 />
               </div>
 
@@ -357,7 +380,7 @@ export default function AddProduct() {
                 />
 
                 <Input
-                  label="Manufacturer"
+                  label="Manufacturer (Optional)"
                   name="manufacturer"
                   placeholder="Manufacturer"
                   value={formData.manufacturer}
@@ -366,7 +389,7 @@ export default function AddProduct() {
                 />
 
                 <Input
-                  label="UnitOfMeasure"
+                  label="Unit Of Measure (Optional)"
                   name="unitOfMeasure"
                   placeholder="Unit of Measure"
                   value={formData.unitOfMeasure}
@@ -405,7 +428,7 @@ export default function AddProduct() {
               />
 
               <Input
-                label="Expiry Date"
+                label="Expiry Date (Optional)"
                 min={new Date().toISOString().split("T")[0]}
                 name="expiryDate"
                 type="date"
@@ -442,6 +465,20 @@ export default function AddProduct() {
                 onChange={handleChange}
                 className="input"
               />
+              {(Number(formData.costPrice) > 0 ||
+                Number(formData.sellingPrice) > 0) && (
+                <p className="md:col-span-2 text-sm text-gray-600 -mt-2">
+                  You are gaining{" "}
+                  <span
+                    className={`font-semibold ${
+                      percentageGain >= 0 ? "text-green-700" : "text-red-600"
+                    }`}
+                  >
+                    {percentageGain.toFixed(2)}%
+                  </span>{" "}
+                  of what you are selling.
+                </p>
+              )}
 
               {/* Discount Type */}
               <div>
@@ -508,12 +545,14 @@ export default function AddProduct() {
             )}
 
             {/* Discounted Price Preview */}
-            <div className="mt-4 bg-gray-50 border rounded-lg p-3 text-sm">
-              <span className="text-gray-600">Discounted Price: </span>
-              <span className="font-semibold text-green-700">
-                ₦{discountedPrice.toLocaleString()}
-              </span>
-            </div>
+            {hasDiscountPreview && (
+              <div className="mt-4 bg-gray-50 border rounded-lg p-3 text-sm">
+                <span className="text-gray-600">Discounted Price: </span>
+                <span className="font-semibold text-green-700">
+                  ₦{discountedPrice.toLocaleString()}
+                </span>
+              </div>
+            )}
           </section>
 
           {/* Image Upload */}

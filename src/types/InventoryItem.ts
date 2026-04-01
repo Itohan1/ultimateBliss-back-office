@@ -6,11 +6,13 @@ export type DiscountType =
   | "promotion";
 
 export interface InventoryItem {
+  _id?: string;
   productId: number;
   productName: string;
-  sku: string;
+  sku?: string;
   category: string;
   subcategory?: string;
+  description?: string;
   brandName?: string;
   manufacturer?: string;
   unitOfMeasure?: string;
@@ -27,6 +29,7 @@ export interface InventoryItem {
     discount?: number;
     discountType?: DiscountType;
     discountedPrice?: number;
+    percentageGain?: number;
     isDiscounted?: boolean;
     freeOffer?: {
       minQuantityOfPurchase?: number;

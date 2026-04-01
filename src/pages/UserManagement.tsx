@@ -49,6 +49,10 @@ export default function UserManagement() {
   );
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const getDisplayName = (user: { firstname?: string; lastname?: string }) => {
+    const fullName = `${user.firstname ?? ""} ${user.lastname ?? ""}`.trim();
+    return fullName || "-";
+  };
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
@@ -57,7 +61,7 @@ export default function UserManagement() {
         setIsSidebarOpen={setIsSidebarOpen}
       />
 
-      <main className="flex-1 flex flex-col w-full overflow-y-auto">
+      <main className="flex-1 flex flex-col w-full overflow-y-auto md:overflow-y-hidden md:overflow-x-auto">
         <Header
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
@@ -107,7 +111,7 @@ export default function UserManagement() {
 
           {/* User Table */}
           <div className="bg-white p-5 rounded-2xl shadow">
-            <div className="hidden md:block">
+            <div className="hidden md:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead>
                   <tr className="bg-gray-50">
@@ -137,7 +141,7 @@ export default function UserManagement() {
                       className="cursor-pointer hover:bg-gray-100"
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {user.firstname} {user.lastname}
+                        {getDisplayName(user)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {user.email}
@@ -163,7 +167,7 @@ export default function UserManagement() {
                     className="w-full rounded-xl border border-gray-200 p-4 text-left hover:bg-gray-50"
                   >
                     <p className="font-semibold text-gray-900">
-                      {user.firstname} {user.lastname}
+                      {getDisplayName(user)}
                     </p>
                     <p className="text-sm text-gray-600">{user.email}</p>
                     <p className="mt-2 text-sm">

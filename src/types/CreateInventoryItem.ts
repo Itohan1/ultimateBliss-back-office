@@ -2,7 +2,7 @@ export type DiscountType = "none" | "percentage" | "flat" | "free";
 
 export interface CreateInventoryItem {
   productName: string;
-  sku: string;
+  sku?: string;
   category: string;
   subcategory?: string;
   description?: string;
@@ -13,12 +13,13 @@ export interface CreateInventoryItem {
   inventory: {
     stockNumber: number;
     lowStockThreshold: number;
-    expiryDate: string;
+    expiryDate?: string;
   };
 
   pricing: {
     costPrice: number;
     sellingPrice: number;
+    percentageGain?: number;
     discount?: number;
     discountType?: DiscountType;
 

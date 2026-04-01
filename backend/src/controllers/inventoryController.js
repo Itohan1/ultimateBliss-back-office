@@ -34,6 +34,78 @@ const getNextProductId = async () => {
   return counter.seq;
 };
 
+const buildProductLookup = (productIdParam) => {
+  const numericProductId = Number(productIdParam);
+  return Number.isFinite(numericProductId)
+    ? { productId: numericProductId }
+    : { _id: productIdParam };
+};
+
+const computePricingValues = (incomingPricing = {}, existingPricing = {}) => {
+  const mergedPricing = {
+    costPrice: Number(incomingPricing.costPrice ?? existingPricing.costPrice ?? 0),
+    sellingPrice: Number(
+      incomingPricing.sellingPrice ?? existingPricing.sellingPrice ?? 0,
+    ),
+    discount: Math.max(
+      0,
+      Number(incomingPricing.discount ?? existingPricing.discount ?? 0),
+    ),
+    discountType: incomingPricing.discountType ?? existingPricing.discountType ?? "none",
+    freeOffer: {
+      minQuantityOfPurchase: Number(
+        incomingPricing.freeOffer?.minQuantityOfPurchase ??
+          existingPricing.freeOffer?.minQuantityOfPurchase ??
+          0,
+      ),
+      freeItemQuantity: Number(
+        incomingPricing.freeOffer?.freeItemQuantity ??
+          existingPricing.freeOffer?.freeItemQuantity ??
+          0,
+      ),
+      freeItemDescription:
+        incomingPricing.freeOffer?.freeItemDescription ??
+        existingPricing.freeOffer?.freeItemDescription ??
+        "",
+    },
+  };
+
+  if (mergedPricing.sellingPrice < mergedPricing.costPrice) {
+    mergedPricing.sellingPrice = mergedPricing.costPrice;
+  }
+
+  let discountedPrice = mergedPricing.sellingPrice;
+  if (mergedPricing.discountType === "percentage" && mergedPricing.discount > 0) {
+    discountedPrice =
+      mergedPricing.sellingPrice -
+      (mergedPricing.sellingPrice * mergedPricing.discount) / 100;
+  } else if (mergedPricing.discountType === "flat" && mergedPricing.discount > 0) {
+    discountedPrice = mergedPricing.sellingPrice - mergedPricing.discount;
+  }
+
+  discountedPrice = Math.max(0, Math.round(discountedPrice));
+  const percentageGain =
+    mergedPricing.costPrice > 0
+      ? Number(
+          (
+            ((mergedPricing.sellingPrice - mergedPricing.costPrice) /
+              mergedPricing.costPrice) *
+            100
+          ).toFixed(2),
+        )
+      : 0;
+
+  return {
+    ...mergedPricing,
+    discountedPrice,
+    percentageGain,
+    isDiscounted:
+      discountedPrice < mergedPricing.sellingPrice ||
+      (mergedPricing.discountType === "free" &&
+        mergedPricing.freeOffer.freeItemQuantity > 0),
+  };
+};
+
 export const createInventoryItem = async (req, res) => {
   let uploadedImage = null;
 
@@ -57,10 +129,17 @@ export const createInventoryItem = async (req, res) => {
       pricing = {},
       productImage,
     } = payload;
+    const normalizedSku = typeof sku === "string" ? sku.trim() : "";
 
-    if (!productName || !sku || !category) {
+    const missingFields = [];
+    if (!productName) missingFields.push("Product name");
+    if (!category) missingFields.push("Category");
+
+    if (missingFields.length > 0) {
       return res.status(400).json({
-        message: "productName, sku and category are required",
+        message: `${missingFields.join(" and ")} ${
+          missingFields.length > 1 ? "are" : "is"
+        } required`,
       });
     }
 
@@ -69,13 +148,13 @@ export const createInventoryItem = async (req, res) => {
     if (req.file) {
       uploadedImage = await uploadImageBuffer(req.file, {
         folder: "ultimatebliss/inventory",
-        publicIdPrefix: `product_${sku}`,
+        publicIdPrefix: `product_${normalizedSku || productId}`,
       });
     } else if (productImage) {
       if (isDataImageUri(productImage)) {
         uploadedImage = await uploadImageDataUri(productImage, {
           folder: "ultimatebliss/inventory",
-          publicIdPrefix: `product_${sku}`,
+          publicIdPrefix: `product_${normalizedSku || productId}`,
         });
       } else if (!isHttpUrl(productImage)) {
         return res.status(400).json({
@@ -88,7 +167,7 @@ export const createInventoryItem = async (req, res) => {
     const item = await Inventory.create({
       productId,
       productName,
-      sku,
+      sku: normalizedSku,
       category,
       subcategory,
       description: description ?? "",
@@ -101,15 +180,7 @@ export const createInventoryItem = async (req, res) => {
         expiryDate: inventory.expiryDate ?? null,
       },
       pricing: {
-        costPrice: pricing.costPrice ?? 0,
-        sellingPrice: pricing.sellingPrice ?? 0,
-        discount: pricing.discount ?? 0,
-        discountType: pricing.discountType ?? "none",
-        freeOffer: {
-          minQuantityOfPurchase: pricing.freeOffer?.minQuantityOfPurchase ?? 1,
-          freeItemQuantity: pricing.freeOffer?.freeItemQuantity ?? 1,
-          freeItemDescription: pricing.freeOffer?.freeItemDescription ?? "",
-        },
+        ...computePricingValues(pricing),
       },
       productImage: uploadedImage?.url ?? productImage ?? null,
       productImagePublicId: uploadedImage?.publicId ?? null,
@@ -165,21 +236,22 @@ export const getInventoryItem = async (req, res) => {
     const { productId } = req.params;
     const userId = req.user?.userId || null;
     const sessionId = req.headers["x-session-id"] || null;
+    const productLookup = buildProductLookup(productId);
+    const numericProductId = Number(productId);
+    const likeProductId = Number.isFinite(numericProductId) ? numericProductId : null;
 
-    const item = await Inventory.findOne({
-      productId: Number(productId),
-    }).lean();
+    const item = await Inventory.findOne(productLookup).lean();
 
     if (!item) {
       return res.status(404).json({ message: "Product not found" });
     }
 
     let isLiked = false;
-    if (userId || sessionId) {
+    if ((userId || sessionId) && likeProductId !== null) {
       const liked = await Like.findOne(
         userId
-          ? { userId, productId: Number(productId) }
-          : { sessionId, productId: Number(productId) },
+          ? { userId, productId: likeProductId }
+          : { sessionId, productId: likeProductId },
       );
       isLiked = Boolean(liked);
     }
@@ -197,32 +269,31 @@ export const getInventoryItem = async (req, res) => {
 export const updateInventoryItem = async (req, res) => {
   try {
     const { productId } = req.params;
+    const productLookup = buildProductLookup(productId);
     const parsedPayload = parseRequestPayload(req);
     if (!parsedPayload) {
       return res.status(400).json({ message: "Invalid payload JSON" });
     }
 
     const payload = { ...parsedPayload };
-    const item = await Inventory.findOne({ productId: Number(productId) });
+    const item = await Inventory.findOne(productLookup);
 
     if (!item) {
       return res.status(404).json({ message: "Product not found" });
     }
 
+    if (typeof payload.sku === "string") {
+      payload.sku = payload.sku.trim();
+    }
+
     if (payload.pricing) {
-      payload.pricing.freeOffer = {
-        minQuantityOfPurchase:
-          payload.pricing.freeOffer?.minQuantityOfPurchase ?? 0,
-        freeItemQuantity: payload.pricing.freeOffer?.freeItemQuantity ?? 0,
-        freeItemDescription:
-          payload.pricing.freeOffer?.freeItemDescription ?? "",
-      };
+      payload.pricing = computePricingValues(payload.pricing, item.pricing);
     }
 
     if (req.file) {
       const uploaded = await uploadImageBuffer(req.file, {
         folder: "ultimatebliss/inventory",
-        publicIdPrefix: `product_${item.sku}`,
+        publicIdPrefix: `product_${item.sku || item.productId}`,
       });
 
       payload.productImage = uploaded.url;
@@ -248,7 +319,7 @@ export const updateInventoryItem = async (req, res) => {
       } else if (isDataImageUri(incomingImage)) {
         const uploaded = await uploadImageDataUri(incomingImage, {
           folder: "ultimatebliss/inventory",
-          publicIdPrefix: `product_${item.sku}`,
+          publicIdPrefix: `product_${item.sku || item.productId}`,
         });
 
         payload.productImage = uploaded.url;
@@ -279,7 +350,7 @@ export const updateInventoryItem = async (req, res) => {
     }
 
     const updatedItem = await Inventory.findOneAndUpdate(
-      { productId: Number(productId) },
+      productLookup,
       { $set: payload },
       { new: true, runValidators: true },
     );
@@ -301,10 +372,9 @@ export const updateInventoryItem = async (req, res) => {
 export const deleteInventoryItem = async (req, res) => {
   try {
     const { productId } = req.params;
-
-    const deletedItem = await Inventory.findOneAndDelete({
-      productId: Number(productId),
-    });
+    const deletedItem = await Inventory.findOneAndDelete(
+      buildProductLookup(productId),
+    );
 
     if (!deletedItem) {
       return res.status(404).json({ message: "Product not found" });

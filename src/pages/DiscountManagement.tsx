@@ -52,7 +52,7 @@ export default function DiscountManagement() {
     return products.filter((product) => {
       return (
         product.productName.toLowerCase().includes(term) ||
-        product.sku.toLowerCase().includes(term) ||
+        (product.sku ?? "").toLowerCase().includes(term) ||
         product.category.toLowerCase().includes(term) ||
         (product.subcategory || "").toLowerCase().includes(term)
       );
@@ -325,7 +325,7 @@ export default function DiscountManagement() {
                         }}
                       />
                       <span className="text-sm">
-                        {product.productName} ({product.sku})
+                        {product.productName} ({product.sku || "-"})
                       </span>
                     </label>
                   ))}
@@ -380,7 +380,7 @@ export default function DiscountManagement() {
                       {discountedItems.map((item) => (
                         <tr key={item.productId}>
                           <td className="px-3 py-2">
-                            {item.productName} ({item.sku})
+                            {item.productName} ({item.sku || "-"})
                           </td>
                           <td className="px-3 py-2">
                             {item.category}
@@ -415,7 +415,7 @@ export default function DiscountManagement() {
                       className="border border-gray-200 rounded-xl p-4"
                     >
                       <p className="font-semibold">
-                        {item.productName} ({item.sku})
+                        {item.productName} ({item.sku || "-"})
                       </p>
                       <p className="text-sm text-gray-600 mt-1">
                         Category: {item.category}

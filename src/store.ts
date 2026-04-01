@@ -1,5 +1,5 @@
-import { configureStore } from "@reduxjs/toolkit";
-import authAdmin from "./features/adminAuthSlice";
+import { configureStore, isRejectedWithValue, type Middleware } from "@reduxjs/toolkit";
+import authAdmin, { adminLogout } from "./features/adminAuthSlice";
 import { api as authApi } from "./services/authApi";
 import { inventoryApi } from "./services/inventoryApi";
 import { categoryApi } from "./services/categoryApi";
@@ -16,6 +16,24 @@ import { cartApi } from "./services/cartApi";
 import { returnApi } from "./services/returnApi";
 import { notificationApi } from "./services/notificationApi";
 import { discountApi } from "./services/discountApi";
+
+const authExpiryMiddleware: Middleware = (storeApi) => (next) => (action) => {
+  if (isRejectedWithValue(action)) {
+    const status = (action.payload as { status?: number })?.status;
+    if (status === 401) {
+      const hasToken = Boolean(
+        (storeApi.getState() as { adminAuth?: { token?: string | null } }).adminAuth
+          ?.token,
+      );
+
+      if (hasToken) {
+        storeApi.dispatch(adminLogout());
+      }
+    }
+  }
+
+  return next(action);
+};
 
 export const store = configureStore({
   reducer: {
@@ -39,6 +57,7 @@ export const store = configureStore({
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
+      .concat(authExpiryMiddleware)
       .concat(authApi.middleware)
       .concat(inventoryApi.middleware)
       .concat(adApi.middleware)

@@ -17,8 +17,8 @@ const inventorySchema = new mongoose.Schema(
 
     sku: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
     },
 
     category: {
@@ -63,6 +63,7 @@ const inventorySchema = new mongoose.Schema(
       },
 
       discountedPrice: { type: Number, default: 0 },
+      percentageGain: { type: Number, default: 0 },
       isDiscounted: { type: Boolean, default: false },
     },
 
@@ -141,6 +142,14 @@ inventorySchema.pre("save", function (next) {
   discounted = Math.max(0, Math.round(discounted));
 
   pricing.discountedPrice = discounted;
+  pricing.percentageGain =
+    pricing.costPrice > 0
+      ? Number(
+          (((pricing.sellingPrice - pricing.costPrice) / pricing.costPrice) * 100).toFixed(
+            2,
+          ),
+        )
+      : 0;
   pricing.isDiscounted =
     discounted < pricing.sellingPrice ||
     (pricing.discountType === "free" &&
